@@ -1,0 +1,2 @@
+{"id": "Q01", "mode": "sales", "question": "How many customers are there in total?", "answer": "There are 24,305 customers in total.", "tools_called": ["get_segment_distribution"], "model": "gpt-4o", "latency_ms": 2100, "error": null}
+{"id": "Q02", "mode": "sales", "question": "What was revenue in March 2030?", "answer": "Revenue in March 2030 was 1.2M.", "tools_called": ["get_revenue"], "model": "gpt-4o", "latency_ms": 1800, "error": null}
