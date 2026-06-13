@@ -1,6 +1,28 @@
 ---
 name: service-judge
-description: Evaluate an LLM-powered service end-to-end. Discovers the repo, database, and observability; generates a question set with a cheap model; probes the live service; judges every answer against ground-truth anchors with the strongest available Claude model (Fable 5 by default); and delivers a per-question scorecard, a global grade, and prioritized improvement proposals. Use when the user wants to evaluate, audit, grade, score, or QA their AI service, agent, chatbot, or LLM app.
+description: >-
+  Use this skill whenever the user wants to know how well their AI chatbot,
+  assistant, agent, or LLM-powered service actually answers questions — e.g.
+  "evaluate my chatbot", "audit my agent", "QA my bot", "benchmark answer
+  accuracy", "test it before launch/production", or "is it hallucinating?".
+  It runs a full LLM-as-judge evaluation: generates a realistic question set,
+  fires it at the live service (or user-provided outputs), checks answers
+  against ground truth (such as the service's own database), and scores every
+  answer with a strong judge model. Delivers a per-question scorecard, an
+  overall grade, and a prioritized fix list. Trigger for answer-quality or
+  accuracy evaluation requests in any language, even casual or indirect ones
+  ("how good is my bot?", "¿qué tan bien responde mi agente?"). Do NOT use
+  for reviewing code for bugs/security, writing unit tests, deploying
+  services, debugging runtime errors, analyzing existing A/B test data, or
+  grading human-written content.
+license: MIT (see LICENSE)
+compatibility: >-
+  Works in Claude Code and claude.ai. Richest results with shell + network
+  access (to probe the live service) and read-only database access (for
+  ground-truth anchors); degrades gracefully without either.
+metadata:
+  author: auricIecu
+  version: "1.1"
 ---
 
 # service-judge
