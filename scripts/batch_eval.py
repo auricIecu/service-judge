@@ -17,6 +17,8 @@ import json
 import pathlib
 import sys
 
+# Keep in sync with the rubric table in references/judging.md — the
+# interactive and batch paths must judge with identical criteria.
 RUBRIC = """Score this answer 0-5 using these dimensions:
 - tool_choice (0-1): appropriate tool/path called for the question
 - accuracy (0-2): numbers/facts match the anchor (no anchor: plausibility, max 1, mark unanchored)

@@ -1,5 +1,8 @@
 # Phase 4 — Judging
 
+<!-- The rubric below is duplicated in scripts/batch_eval.py (RUBRIC constant)
+     so the batch path can run standalone. If you change one, change both. -->
+
 ## Judge selection (before anything else)
 
 The judge MUST be at least as strong as the model that produced the answers.
@@ -29,6 +32,12 @@ Verdict bands: ✅ ≥4 · ⚠️ 2.5–3.5 · ❌ ≤2.
 
 Score FIRST, then write the improvement comment. Never adjust a score to
 match a comment already written.
+
+If per-answer verdicts were produced by `scripts/batch_eval.py` instead of
+in-session judging, load its verdict JSONL (one `{id, score, verdict,
+unanchored, improvement_comment}` per line), map them onto the pack by `id`,
+and continue directly with the cross-answer pass below — that pass always
+happens in-session.
 
 ## What to hunt beyond the rubric (the judge's real value)
 
