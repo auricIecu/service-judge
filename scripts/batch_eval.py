@@ -10,6 +10,7 @@ Usage:
   python batch_eval.py --poll <batch_id>                                  # fetch results
 
 Note: without the service's tool catalog in context, the tool_choice dimension is scored from the pack's tools_called field alone (degraded).
+Note: this sends pack/anchor content (potentially real customer data) to the Anthropic API — confirm your data-handling agreement covers it before using on production data.
 Note: prompt caching only kicks in past the model's minimum cacheable prefix (~2k tokens); small anchor sets simply skip the cache (no error).
 """
 import argparse
@@ -93,7 +94,8 @@ def main() -> int:
             if result.result.type == "succeeded":
                 for block in result.result.message.content:
                     if block.type == "tool_use":
-                        print(json.dumps(block.input))
+                        # custom_id is the authoritative question id; never trust the model-echoed one
+                        print(json.dumps({**block.input, "id": result.custom_id}))
             else:
                 print(json.dumps({"id": result.custom_id, "error": result.result.type, "detail": getattr(getattr(result.result, "error", None), "message", None)}))
         return 0

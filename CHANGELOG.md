@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2 — 2026-07-03
+
+- **Security hardening** (from an adversarial audit of the skill):
+  - Judge now treats the probed service's answers as untrusted data — never
+    follows instructions embedded in them, and runs with no tool access.
+  - `batch_eval.py` maps verdicts by the authoritative `custom_id` instead
+    of the model-echoed id (silent mis-scoring bug).
+  - Parameterized-SQL rule for anchor extraction; config reading scoped to
+    DB/observability keys only; data-privacy warning for the Batches API
+    path; `eval-` session-ID stealth tradeoff documented; probe circuit
+    breaker (>30% consecutive errors → pause); judge comments plain-text
+    only; offer to gitignore `eval-runs/`.
+- **Codex CLI support**: judge-model language made agent-neutral (Fable 5
+  remains the default in Claude environments), in-session sequential path
+  for agents without subagents, Codex install instructions in the README.
+- **Machine-readable scorecard**: `eval-runs/<date>-scorecard.json` saved
+  next to the report, with automatic delta section against the previous run.
+
 ## 1.1 — 2026-06-13
 
 - **Description rewritten and validated with trigger evals** (20 realistic

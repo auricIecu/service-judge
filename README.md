@@ -33,6 +33,14 @@ Born from a real eval that caught broken tools, placeholder data narrated as a b
 
 Then ask: *"evaluate my service with service-judge"* (or `/service-judge`).
 
+### Codex CLI (and Cursor, Windsurf, Copilot...)
+
+The same command installs to the right place for whichever agent you use:
+
+    npx skills add auricIecu/service-judge
+
+Or manually for Codex: `git clone https://github.com/auricIecu/service-judge ~/.codex/skills/service-judge`. Codex has no subagents — the skill detects this and judges in-session with your strongest model.
+
 ### claude.ai (web)
 
 1. Download `service-judge.skill` from the [latest release](https://github.com/auricIecu/service-judge/releases/latest) (or the repo as ZIP via the green **Code** button).

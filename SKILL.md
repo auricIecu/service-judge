@@ -17,12 +17,13 @@ description: >-
   grading human-written content.
 license: MIT (see LICENSE)
 compatibility: >-
-  Works in Claude Code and claude.ai. Richest results with shell + network
-  access (to probe the live service) and read-only database access (for
-  ground-truth anchors); degrades gracefully without either.
+  Works in Claude Code, claude.ai, Codex CLI, and any SKILL.md-compatible
+  agent. Richest results with shell + network access (to probe the live
+  service) and read-only database access (for ground-truth anchors);
+  degrades gracefully without either.
 metadata:
   author: auricIecu
-  version: "1.1"
+  version: "1.2"
 ---
 
 # service-judge
@@ -93,11 +94,15 @@ obtained.
 ## Phase 4 — Judging
 
 Load `references/judging.md` and follow it. The judge must be the STRONGEST
-available Claude model — default `claude-fable-5`; if unavailable, escalate
-down (Opus, then Sonnet) and record which judge was used.
+model available in your environment. In Claude environments that is
+`claude-fable-5` by default; if unavailable, escalate down (Opus, then
+Sonnet). In other agents (Codex CLI, etc.) use the strongest reasoning model
+you have. Always record which judge was used.
 - Claude Code: run the judge as a subagent with the strongest model.
 - claude.ai chat: tell the user exactly when to switch models with the model
   picker, then judge in-session.
+- Agents without subagents (Codex CLI and similar): judge in-session,
+  sequentially, batching ~10 questions per pass.
 If the strongest reachable judge is WEAKER than the model that generated the
 answers, warn the user and request an upgrade before judging; if they decline,
 record "judge < judged" as a confidence caveat in the report.
@@ -116,4 +121,6 @@ service. The report is the artifact; acting on it is the user's next move
 For 100+ question sets, repeated runs, or CI, `scripts/batch_eval.py` runs the
 per-answer scoring of the judging phase via the Anthropic API (Batches −50%, prompt caching; the cross-answer pass stays in-session). It needs a
 terminal and an `ANTHROPIC_API_KEY`. Only mention it if the user asks about
-automation or the set is large; never require it.
+automation or the set is large; never require it. Warn before use: it sends
+pack/anchor content — potentially real customer data — to the Anthropic API,
+which the user must confirm is covered by their data-handling agreement.
