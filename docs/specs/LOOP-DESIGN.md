@@ -331,8 +331,9 @@ taparlo. `--model` acepta alias o nombre completo y sobreescribe
 
 Notas de la revisión contra el repo (2026-07-25):
 
-- **Tarea 0:** el doc decía "tag v1.2", pero el repo tiene tag `v1.1` y el
-  commit se describe "v1.0". Reconciliar cuál es la verdad antes de taguear.
+- **Tarea 0 (✅ resuelta):** el estado actual ES la v1.2 (confirmado por el
+  humano, 2026-07-26); tag `v1.2` creado sobre `2774687`. Los rótulos "v1.0"
+  del commit y `v1.1` del tag anterior son restos de historia reescrita.
 - **Tarea 1:** el drift que D8 teme **ya existe**: hay una rúbrica hardcodeada
   en la constante `RUBRIC` de `batch_eval.py` y otra en prosa en
   `references/judging.md`. Extraer `rubric.md` incluye que `batch_eval.py` la
