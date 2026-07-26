@@ -93,6 +93,39 @@ lists the `eval-*` IDs used so the user can clean up. Do not start fixing the
 service. The report is the artifact; acting on it is the user's next move
 (offer to help as a separate task if they ask).
 
+## API mode (non-interactive, for scripts/loop.py)
+
+Trigger: the invocation names a run config file (e.g. "run service-judge in
+API mode, config `.service-judge/run-<id>/config.json`"). If not triggered,
+ignore this section entirely — human mode is unchanged.
+
+Ask the user NOTHING; never wait for confirmation. All hard rules still
+apply. `config.json` stores references (paths, env var names), never
+credential literals.
+
+Per-phase deltas (everything else follows the phase files):
+
+1. **Discovery:** read `config.json`. No Context Brief confirmation — the
+   config's environment field IS the confirmation (hard rule 5 was satisfied
+   by whoever authored the config).
+2. **Sizing:** load the golden set from the config's `golden_set` path and
+   verify its sha256 against `golden_sha256`. Mismatch → abort.
+3. **Probing:** NO question generation. Probe every golden question (dev AND
+   holdout) against the configured service; write the pack to
+   `<out_dir>/raw/pack.jsonl`. Anchors come from the config's `anchors`
+   path; if absent, record the "no ground truth" degradation and continue.
+4. **Judging:** judge model = the config's `judge_model`, EXACTLY. If
+   unavailable, abort — no silent degradation (D5: a judge swap invalidates
+   the run). Write `<out_dir>/verdicts.json` (array of verdict objects,
+   schema in `scripts/providers/base.py`).
+5. **Report:** no narrative. Write `<out_dir>/grade.json` (schema in
+   `references/reporting.md`) and print its content as the final message.
+
+Abort contract: on any unrecoverable condition, print
+`{"error": "<reason>", "phase": <n>}` as the final message and stop. The
+caller treats any final output without a `total` field as a failed
+iteration.
+
 ## Large runs (optional, advanced)
 
 For 100+ question sets, repeated runs, or CI, `scripts/batch_eval.py` runs the
