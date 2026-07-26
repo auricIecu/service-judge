@@ -3,6 +3,7 @@
 
 Judges an answer pack against anchors via the Anthropic Batches API
 (-50% cost) with prompt caching on the shared rubric+anchors prefix.
+Thin CLI over scripts/providers/anthropic_api.py.
 
 Usage:
   python batch_eval.py --pack pack.jsonl --anchors anchors.md [--model claude-fable-5]
@@ -17,53 +18,10 @@ import json
 import pathlib
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from providers import anthropic_api
+
 DEFAULT_RUBRIC = pathlib.Path(__file__).resolve().parent.parent / "references" / "rubric.md"
-
-VERDICT_TOOL = {
-    "name": "verdict",
-    "description": "Submit the judgment for one answer.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "id": {"type": "string"},
-            "score": {"type": "number", "minimum": 0, "maximum": 5},
-            "verdict": {"type": "string", "enum": ["pass", "warn", "fail"]},
-            "unanchored": {"type": "boolean"},
-            "improvement_comment": {"type": "string"},
-        },
-        "required": ["id", "score", "verdict", "unanchored", "improvement_comment"],
-    },
-}
-
-
-def build_requests(pack_path: pathlib.Path, anchors_path: pathlib.Path, model: str,
-                   rubric_path: pathlib.Path = DEFAULT_RUBRIC) -> list[dict]:
-    anchors = anchors_path.read_text(encoding="utf-8")
-    shared_prefix = [
-        {"type": "text", "text": rubric_path.read_text(encoding="utf-8")},
-        {"type": "text", "text": f"GROUND-TRUTH ANCHORS:\n{anchors}",
-         "cache_control": {"type": "ephemeral"}},
-    ]
-    requests = []
-    for line in pack_path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        rec = json.loads(line)
-        case = (f"QUESTION {rec['id']} (mode: {rec['mode']}):\n{rec['question']}\n\n"
-                f"TOOLS CALLED: {rec.get('tools_called')}\nERROR: {rec.get('error')}\n\n"
-                f"ANSWER:\n{rec['answer']}")
-        requests.append({
-            "custom_id": rec["id"],
-            "params": {
-                "model": model,
-                "max_tokens": 1024,
-                "system": shared_prefix,
-                "tools": [VERDICT_TOOL],
-                "tool_choice": {"type": "tool", "name": "verdict"},
-                "messages": [{"role": "user", "content": case}],
-            },
-        })
-    return requests
 
 
 def main() -> int:
@@ -78,34 +36,28 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.poll:
-        import anthropic
-        client = anthropic.Anthropic()
-        batch = client.messages.batches.retrieve(args.poll)
-        print(f"status: {batch.processing_status}", file=sys.stderr)
-        if batch.processing_status != "ended":
+        status, verdicts = anthropic_api.fetch(args.poll)
+        print(f"status: {status}", file=sys.stderr)
+        if status != "ended":
             return 1
-        for result in client.messages.batches.results(args.poll):
-            if result.result.type == "succeeded":
-                for block in result.result.message.content:
-                    if block.type == "tool_use":
-                        print(json.dumps(block.input))
-            else:
-                print(json.dumps({"id": result.custom_id, "error": result.result.type, "detail": getattr(getattr(result.result, "error", None), "message", None)}))
+        for verdict in verdicts:
+            print(json.dumps(verdict))
         return 0
 
     if not args.pack or not args.anchors:
         ap.error("--pack and --anchors are required (unless --poll)")
-    requests = build_requests(args.pack, args.anchors, args.model, args.rubric)
+    items = anthropic_api.load_pack(args.pack.read_text(encoding="utf-8"))
+    requests = anthropic_api.build_requests(
+        items, args.anchors.read_text(encoding="utf-8"),
+        args.rubric.read_text(encoding="utf-8"), args.model)
     if args.dry_run:
         print(json.dumps(requests, indent=2))
         print(f"{len(requests)} requests built (dry run, nothing sent)", file=sys.stderr)
         return 0
 
-    import anthropic
-    client = anthropic.Anthropic()
-    batch = client.messages.batches.create(requests=requests)
-    print(f"submitted batch {batch.id} with {len(requests)} requests", file=sys.stderr)
-    print(f"poll with: python {sys.argv[0]} --poll {batch.id}", file=sys.stderr)
+    batch_id = anthropic_api.submit(requests)
+    print(f"submitted batch {batch_id} with {len(requests)} requests", file=sys.stderr)
+    print(f"poll with: python {sys.argv[0]} --poll {batch_id}", file=sys.stderr)
     return 0
 
 
