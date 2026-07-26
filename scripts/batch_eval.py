@@ -36,7 +36,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.poll:
-        status, verdicts = anthropic_api.fetch(args.poll)
+        status, verdicts, _usage = anthropic_api.fetch(args.poll)
         print(f"status: {status}", file=sys.stderr)
         if status != "ended":
             return 1

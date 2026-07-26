@@ -54,24 +54,29 @@ def submit(requests: list[dict]) -> str:
     return client.messages.batches.create(requests=requests).id
 
 
-def fetch(batch_id: str) -> tuple[str, list[dict] | None]:
-    """Return (status, verdicts). verdicts is None until status == 'ended'.
-    Failed items come back as {"id", "error", "detail"} records."""
+def fetch(batch_id: str) -> tuple[str, list[dict] | None, dict]:
+    """Return (status, verdicts, usage). verdicts is None until status == 'ended'.
+    Failed items come back as {"id", "error", "detail"} records.
+    usage sums input/output tokens across results (loop.py's budget meter)."""
     import anthropic
     client = anthropic.Anthropic()
     batch = client.messages.batches.retrieve(batch_id)
+    usage = {"input_tokens": 0, "output_tokens": 0}
     if batch.processing_status != "ended":
-        return batch.processing_status, None
+        return batch.processing_status, None, usage
     verdicts = []
     for result in client.messages.batches.results(batch_id):
         if result.result.type == "succeeded":
+            u = result.result.message.usage
+            usage["input_tokens"] += u.input_tokens
+            usage["output_tokens"] += u.output_tokens
             for block in result.result.message.content:
                 if block.type == "tool_use":
                     verdicts.append(dict(block.input))
         else:
             verdicts.append({"id": result.custom_id, "error": result.result.type,
                              "detail": getattr(getattr(result.result, "error", None), "message", None)})
-    return "ended", verdicts
+    return "ended", verdicts, usage
 
 
 class AnthropicBatchScorer:
@@ -80,12 +85,14 @@ class AnthropicBatchScorer:
     def __init__(self, model: str = "claude-fable-5", poll_interval: float = 30.0):
         self.model = model
         self.poll_interval = poll_interval
+        self.last_usage = {"input_tokens": 0, "output_tokens": 0}
 
     def score(self, items: list[dict], anchors: str, rubric: str) -> list[dict]:
         batch_id = submit(build_requests(items, anchors, rubric, self.model))
         while True:
-            status, verdicts = fetch(batch_id)
+            status, verdicts, usage = fetch(batch_id)
             if status == "ended":
+                self.last_usage = usage
                 return verdicts
             time.sleep(self.poll_interval)
 
