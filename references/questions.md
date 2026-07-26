@@ -48,6 +48,25 @@ generate in-session.
 Questions must be REALISTIC end-user questions (not test-suite phrasing),
 in the language of the service's real users.
 
+## Freeze as golden set (offer once)
+
+After generating the set, offer ONCE to freeze it as
+`.service-judge/questions.golden.jsonl` — shared across runs (it lives
+outside any run directory; runs reference it by sha256). If the user
+declines, or the set was reused from an existing golden set (Phase 2), skip
+this and probe as usual.
+
+If frozen, assign each question a `split`: ~70% `dev` / 30% `holdout`,
+stratified by mode and by type (normal/trap), so every mode/type
+combination keeps roughly the same dev:holdout ratio. One JSON object per
+line:
+
+    {"id":"Q01","mode":"<mode>","type":"normal|trap","split":"dev|holdout","question":"..."}
+
+Holdout questions exist so a future loop can detect overfitting (dev score
+up, holdout flat). This skill's human mode does NOT hide holdout from the
+user — hiding it is the loop's job, not this one.
+
 ## Probing (Phase 3c)
 
 - Fire each question at the confirmed endpoint with a session ID like

@@ -49,15 +49,19 @@ Load `references/discovery.md` and follow it.
 
 ## Phase 2 — Sizing
 
-Present the question-count menu (exact table and confidence wording in
-`references/questions.md` §Sizing). Ask the user to pick 30 / 50 / 100.
-**Gate:** user picked a size.
+Check first: does `.service-judge/questions.golden.jsonl` exist? If yes,
+offer to REUSE it — skips generation, keeps scores comparable across runs.
+If the user declines, or the file doesn't exist, proceed exactly as before:
+present the question-count menu (exact table and confidence wording in
+`references/questions.md` §Sizing) and ask the user to pick 30 / 50 / 100.
+**Gate:** user picked a size, or user chose to reuse the golden set.
 
 ## Phase 3 — Generation & probing
 
 Load `references/questions.md` and follow it. Use the CHEAPEST capable model
 available (in Claude Code: spawn subagents with a small/cheap model for
-question generation; otherwise do it in-session).
+question generation; otherwise do it in-session). If Phase 2 reused the
+golden set, skip generation and probe those questions directly.
 **Gate (two independent conditions):**
 (a) an answer pack exists (JSONL, one record per question) — from live probing,
 or from user-provided outputs normalized into the same format if the service
