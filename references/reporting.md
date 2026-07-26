@@ -18,6 +18,19 @@ Fill `assets/report-template.md`. Rules:
 - **ROI ordering of proposals:** (questions fixed × severity) / effort.
   A broken tool whose data exists elsewhere is almost always #1 — it's a
   wiring fix that converts ❌s into ✅s.
+- **`grade.json` (machine-readable twin of the report).** If a filesystem is
+  available, write `eval-runs/<date>-grade.json` next to the report:
+
+  ```json
+  {"judge": "<effective judge model>",
+   "total": 107, "max": 150, "percent": 71,
+   "per_question": [{"id": "Q01", "mode": "sales", "score": 5,
+                     "verdict": "pass", "unanchored": false}],
+   "degradations": ["<every caveat from the confidence header>"]}
+  ```
+
+  Same numbers as the report — compute once, render twice. This is what lets
+  future runs diff per-question results instead of comparing narratives.
 - **Deliver, then exit.** Present the report (and save it as
   `eval-runs/<date>-report.md` in the working directory if a filesystem is
   available — suggest the user add `eval-runs/` to their .gitignore). Offer: "Want me to help implement any of these proposals?" —
