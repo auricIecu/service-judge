@@ -17,13 +17,7 @@ import json
 import pathlib
 import sys
 
-RUBRIC = """Score this answer 0-5 using these dimensions:
-- tool_choice (0-1): appropriate tool/path called for the question
-- accuracy (0-2): numbers/facts match the anchor (no anchor: plausibility, max 1, mark unanchored)
-- hallucination (0-1): no invented numbers AND no invented interpretation
-- directness (0-1): answers the actual question, usable by a real user
-An honest "I don't have that data" on a question whose anchor is none/trap is a good answer.
-Score first; only then write the improvement comment."""
+DEFAULT_RUBRIC = pathlib.Path(__file__).resolve().parent.parent / "references" / "rubric.md"
 
 VERDICT_TOOL = {
     "name": "verdict",
@@ -42,10 +36,11 @@ VERDICT_TOOL = {
 }
 
 
-def build_requests(pack_path: pathlib.Path, anchors_path: pathlib.Path, model: str) -> list[dict]:
+def build_requests(pack_path: pathlib.Path, anchors_path: pathlib.Path, model: str,
+                   rubric_path: pathlib.Path = DEFAULT_RUBRIC) -> list[dict]:
     anchors = anchors_path.read_text(encoding="utf-8")
     shared_prefix = [
-        {"type": "text", "text": RUBRIC},
+        {"type": "text", "text": rubric_path.read_text(encoding="utf-8")},
         {"type": "text", "text": f"GROUND-TRUTH ANCHORS:\n{anchors}",
          "cache_control": {"type": "ephemeral"}},
     ]
@@ -76,6 +71,8 @@ def main() -> int:
     ap.add_argument("--pack", type=pathlib.Path)
     ap.add_argument("--anchors", type=pathlib.Path)
     ap.add_argument("--model", default="claude-fable-5")
+    ap.add_argument("--rubric", type=pathlib.Path, default=DEFAULT_RUBRIC,
+                    help="rubric file inlined in every request (default: references/rubric.md)")
     ap.add_argument("--dry-run", action="store_true", help="print requests, no API call")
     ap.add_argument("--poll", metavar="BATCH_ID", help="fetch results of a submitted batch")
     args = ap.parse_args()
@@ -98,7 +95,7 @@ def main() -> int:
 
     if not args.pack or not args.anchors:
         ap.error("--pack and --anchors are required (unless --poll)")
-    requests = build_requests(args.pack, args.anchors, args.model)
+    requests = build_requests(args.pack, args.anchors, args.model, args.rubric)
     if args.dry_run:
         print(json.dumps(requests, indent=2))
         print(f"{len(requests)} requests built (dry run, nothing sent)", file=sys.stderr)
