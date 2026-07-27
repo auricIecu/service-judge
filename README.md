@@ -26,7 +26,7 @@ Born from a real eval that caught broken tools, placeholder data narrated as a b
 
 ### Claude Code
 
-    npx skills add ericlb12/service-judge
+    npx skills add auricIecu/service-judge
 
 Then ask: *"evaluate my service with service-judge"* (or `/service-judge`).
 
