@@ -42,7 +42,7 @@ RUBRIC_PATH = pathlib.Path(__file__).resolve().parent.parent / "references" / "r
 
 def compute_grade(verdicts: list[dict], questions: list[dict], judge: str,
                   degradations: list[str]) -> dict:
-    """grade.json per references/reporting.md, plus dev/holdout aggregates."""
+    """grade.json: per-question scores plus dev/holdout aggregates and gates."""
     split_of = {q["id"]: q.get("split", "dev") for q in questions}
     per_question, errors = [], []
     for v in verdicts:

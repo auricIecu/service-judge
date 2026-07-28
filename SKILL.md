@@ -1,6 +1,29 @@
 ---
 name: service-judge
-description: Evaluate an LLM-powered service end-to-end. Discovers the repo, database, and observability; generates a question set with a cheap model; probes the live service; judges every answer against ground-truth anchors with the strongest available Claude model (Fable 5 by default); and delivers a per-question scorecard, a global grade, and prioritized improvement proposals. Use when the user wants to evaluate, audit, grade, score, or QA their AI service, agent, chatbot, or LLM app.
+description: >-
+  Use this skill whenever the user wants to know how well their AI chatbot,
+  assistant, agent, or LLM-powered service actually answers questions — e.g.
+  "evaluate my chatbot", "audit my agent", "QA my bot", "benchmark answer
+  accuracy", "test it before launch/production", or "is it hallucinating?".
+  It runs a full LLM-as-judge evaluation: generates a realistic question set,
+  fires it at the live service (or user-provided outputs), checks answers
+  against ground truth (such as the service's own database), and scores every
+  answer with a strong judge model. Delivers a per-question scorecard, an
+  overall grade, and a prioritized fix list. Trigger for answer-quality or
+  accuracy evaluation requests in any language, even casual or indirect ones
+  ("how good is my bot?", "¿qué tan bien responde mi agente?"). Do NOT use
+  for reviewing code for bugs/security, writing unit tests, deploying
+  services, debugging runtime errors, analyzing existing A/B test data, or
+  grading human-written content.
+license: MIT (see LICENSE)
+compatibility: >-
+  Works in Claude Code, claude.ai, Codex CLI, and any SKILL.md-compatible
+  agent. Richest results with shell + network access (to probe the live
+  service) and read-only database access (for ground-truth anchors);
+  degrades gracefully without either.
+metadata:
+  author: auricIecu
+  version: "1.2"
 ---
 
 # service-judge
@@ -75,11 +98,15 @@ obtained.
 ## Phase 4 — Judging
 
 Load `references/judging.md` and follow it. The judge must be the STRONGEST
-available Claude model — default `claude-fable-5`; if unavailable, escalate
-down (Opus, then Sonnet) and record which judge was used.
+model available in your environment. In Claude environments that is
+`claude-fable-5` by default; if unavailable, escalate down (Opus, then
+Sonnet). In other agents (Codex CLI, etc.) use the strongest reasoning model
+you have. Always record which judge was used.
 - Claude Code: run the judge as a subagent with the strongest model.
 - claude.ai chat: tell the user exactly when to switch models with the model
   picker, then judge in-session.
+- Agents without subagents (Codex CLI and similar): judge in-session,
+  sequentially, batching ~10 questions per pass.
 If the strongest reachable judge is WEAKER than the model that generated the
 answers, warn the user and request an upgrade before judging; if they decline,
 record "judge < judged" as a confidence caveat in the report.
@@ -118,8 +145,9 @@ Per-phase deltas (everything else follows the phase files):
    unavailable, abort — no silent degradation (D5: a judge swap invalidates
    the run). Write `<out_dir>/verdicts.json` (array of verdict objects,
    schema in `scripts/providers/base.py`).
-5. **Report:** no narrative. Write `<out_dir>/grade.json` (schema in
-   `references/reporting.md`) and print its content as the final message.
+5. **Report:** no narrative. Write `<out_dir>/grade.json` (schema:
+   `compute_grade` in `scripts/loop.py`) and print its content as the final
+   message.
 
 Abort contract: on any unrecoverable condition, print
 `{"error": "<reason>", "phase": <n>}` as the final message and stop. The
@@ -131,4 +159,6 @@ iteration.
 For 100+ question sets, repeated runs, or CI, `scripts/batch_eval.py` runs the
 per-answer scoring of the judging phase via the Anthropic API (Batches −50%, prompt caching; the cross-answer pass stays in-session). It needs a
 terminal and an `ANTHROPIC_API_KEY`. Only mention it if the user asks about
-automation or the set is large; never require it.
+automation or the set is large; never require it. Warn before use: it sends
+pack/anchor content — potentially real customer data — to the Anthropic API,
+which the user must confirm is covered by their data-handling agreement.

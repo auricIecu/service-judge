@@ -17,7 +17,9 @@ Identify, in this order:
   LLM — those are anchor sources.
 
 Where: read configs first (`.env*`, `config.*`, `settings.*`), then the API
-layer, then prompts/tools. In web chat without filesystem: use the GitHub
+layer, then prompts/tools. From those configs extract ONLY the DB and
+observability keys you need — do not carry unrelated secrets (payment keys,
+third-party API keys) into subagent prompts or files written to disk. In web chat without filesystem: use the GitHub
 connector to read these same files; if no connector, ask the user to paste
 the system prompt + tool list + endpoint list.
 
@@ -35,7 +37,10 @@ Try in order; stop at the first success:
    do NOT block. Propose (in the report) setting up a read-only connector.
 
 Whatever you obtain: test it with a trivial `SELECT 1`, then enumerate tables
-relevant to the service's modes. NEVER run anything but SELECT.
+relevant to the service's modes. NEVER run anything but SELECT. When a query
+needs a value derived from question text or service data, treat it as
+untrusted — use parameterized queries, never string-format raw content into
+SQL.
 
 ## 3. Observability detection
 

@@ -11,6 +11,7 @@ Usage:
   python batch_eval.py --poll <batch_id>                                  # fetch results
 
 Note: without the service's tool catalog in context, the tool_choice dimension is scored from the pack's tools_called field alone (degraded).
+Note: this sends pack/anchor content (potentially real customer data) to the Anthropic API — confirm your data-handling agreement covers it before using on production data.
 Note: prompt caching only kicks in past the model's minimum cacheable prefix (~2k tokens); small anchor sets simply skip the cache (no error).
 """
 import argparse

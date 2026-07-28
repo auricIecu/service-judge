@@ -72,7 +72,8 @@ def fetch(batch_id: str) -> tuple[str, list[dict] | None, dict]:
             usage["output_tokens"] += u.output_tokens
             for block in result.result.message.content:
                 if block.type == "tool_use":
-                    verdicts.append(dict(block.input))
+                    # custom_id is the authoritative question id; never trust the model-echoed one
+                    verdicts.append({**block.input, "id": result.custom_id})
         else:
             verdicts.append({"id": result.custom_id, "error": result.result.type,
                              "detail": getattr(getattr(result.result, "error", None), "message", None)})

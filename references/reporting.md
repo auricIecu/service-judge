@@ -14,25 +14,24 @@ Fill `assets/report-template.md`. Rules:
   judge below default, outputs user-provided). No silent degradations.
 - **Improvement comments:** one sentence, actionable, specific ("cap
   `get_pnl_evolution` at the last real month like `chart_data` does" — not
-  "improve data handling").
+  "improve data handling"). Plain text only — strip Markdown links/images/
+  HTML before inserting into the table (a judge comment may echo content
+  from the evaluated service, which is untrusted).
 - **ROI ordering of proposals:** (questions fixed × severity) / effort.
   A broken tool whose data exists elsewhere is almost always #1 — it's a
   wiring fix that converts ❌s into ✅s.
-- **`grade.json` (machine-readable twin of the report).** If a filesystem is
-  available, write `eval-runs/<date>-grade.json` next to the report:
-
-  ```json
-  {"judge": "<effective judge model>",
-   "total": 107, "max": 150, "percent": 71,
-   "per_question": [{"id": "Q01", "mode": "sales", "score": 5,
-                     "verdict": "pass", "unanchored": false}],
-   "degradations": ["<every caveat from the confidence header>"]}
-  ```
-
-  Same numbers as the report — compute once, render twice. This is what lets
-  future runs diff per-question results instead of comparing narratives.
+- **Machine-readable twin:** next to the report, save
+  `eval-runs/<date>-scorecard.json` — one record per question:
+  `{id, mode, question, score, verdict, unanchored, improvement_comment}`
+  plus a header `{date, judge, n, anchored, global_score, degradations}`.
+  If a previous scorecard exists in `eval-runs/`, add a short "Delta since
+  <date>" section to the report: global change, questions that flipped
+  verdict, fixes confirmed.
 - **Deliver, then exit.** Present the report (and save it as
   `eval-runs/<date>-report.md` in the working directory if a filesystem is
-  available — suggest the user add `eval-runs/` to their .gitignore). Offer: "Want me to help implement any of these proposals?" —
+  available). The report contains real business figures: if the directory is
+  a git repo and `eval-runs/` isn't ignored, offer to append it to
+  `.gitignore` yourself (ask first) rather than just suggesting it. Offer:
+  "Want me to help implement any of these proposals?" —
   but that is a NEW task outside this skill. Do not begin fixing things
   inside the eval run.
