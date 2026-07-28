@@ -27,19 +27,29 @@ Born from a real eval that caught broken tools, placeholder data narrated as a b
 
 ## Install
 
-### Claude Code
+Two skills ship in this repo: **service-judge** (one-off evaluation) and
+**service-judge-loop** (autonomous improvement loop around it).
 
-    npx skills add auricIecu/service-judge
+### Claude Code — as a plugin (recommended: versioned updates)
+
+    /plugin marketplace add auricIecu/service-judge
+    /plugin install service-judge@service-judge
 
 Then ask: *"evaluate my service with service-judge"* (or `/service-judge`).
 
-### Codex CLI (and Cursor, Windsurf, Copilot...)
-
-The same command installs to the right place for whichever agent you use:
+### Claude Code / Codex / Cursor / Windsurf — as a static skill copy
 
     npx skills add auricIecu/service-judge
 
-Or manually for Codex: `git clone https://github.com/auricIecu/service-judge ~/.codex/skills/service-judge`. Codex has no subagents — the skill detects this and judges in-session with your strongest model.
+Installs to the right place for whichever agent you use, but does NOT
+auto-update — re-run the command to pick up new versions.
+
+### Codex CLI — as a plugin
+
+    codex plugin marketplace add https://github.com/auricIecu/service-judge
+    codex plugin install service-judge
+
+Codex has no subagents — the skill detects this and judges in-session with your strongest model.
 
 ### claude.ai (web)
 
