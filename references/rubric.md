@@ -1,0 +1,20 @@
+# Rubric — score each answer 0–5
+
+Single source of truth. Every scorer (in-session judge, subagent, or
+`scripts/batch_eval.py`) receives this text inline in its prompt; never
+paraphrase it.
+
+| Dimension | Points | What to check |
+|---|---|---|
+| Tool choice | 0–1 | Did it call the appropriate tool/path for this question? (1 = right tool; 0.5 = suboptimal but valid; 0 = wrong/no tool when one existed) |
+| Accuracy vs anchor | 0–2 | Numbers/facts match the anchor. 2 = exact; 1 = right direction, minor error; 0 = wrong. No anchor → grade plausibility, max 1, and mark `unanchored` |
+| Hallucination | 0–1 | 1 = no invented numbers AND no invented interpretation. Interpretive hallucination (narrating artifacts as real events) loses the point even if digits are correct |
+| Directness | 0–1 | Answered the actual question, usable by a real user, no deflection |
+
+Verdict bands: ✅ pass ≥4 · ⚠️ warn 2.5–3.5 · ❌ fail ≤2.
+
+An honest "I don't have that data" on a question whose anchor is none/trap
+is a good answer, not a failure.
+
+Score FIRST, then write the improvement comment. Never adjust a score to
+match a comment already written.
