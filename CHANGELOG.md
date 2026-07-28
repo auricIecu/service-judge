@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3 — 2026-07-27
+
+- **Plugin distribution** (BREAKING for manual-clone installs): `SKILL.md`
+  moved from the repo root to `skills/service-judge/` (with `references/`,
+  `assets/`, and `scripts/` inside it), so the repo now serves as a plugin
+  for both Claude Code (`.claude-plugin/`) and Codex CLI (`.codex-plugin/` +
+  `.agents/plugins/marketplace.json`) — the channels with versioned updates.
+  `npx skills add auricIecu/service-judge` still works (it discovers skills
+  in subdirectories); a raw `git clone` into a skills dir no longer does.
+- **New skill `service-judge-loop`**: sets up and drives `scripts/loop.py`
+  (golden set, run config, stop-condition reporting).
+- **Loop capability (tasks 0–5 of the LOOP-DESIGN spec)**: frozen golden
+  set with dev/holdout split, non-interactive API mode, `scripts/loop.py`
+  with four stop conditions, providers refactor of `batch_eval.py`, single
+  rubric source (`references/rubric.md`).
+
 ## 1.2 — 2026-07-03
 
 - **Security hardening** (from an adversarial audit of the skill):
