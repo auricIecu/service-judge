@@ -71,6 +71,11 @@ user — hiding it is the loop's job, not this one.
 
 - Fire each question at the confirmed endpoint with a session ID like
   `eval-<date>-Q<NN>`. One question per session unless testing multi-turn.
+  Note: the `eval-` prefix trades stealth for auditability (it enables the
+  cleanup list in the report). An "eval-aware" service could special-case
+  these requests to look better; for adversarial or pre-launch audits, offer
+  the user non-obvious session IDs and cross-check a few questions against
+  unmarked requests.
 - Record per question: `{id, mode, question, answer, tools_called, model,
   latency_ms, error}` — one JSON object per line (the "pack").
 - The pack `id` IS the canonical question key `Q<NN>` (e.g. `Q07`): the same
@@ -78,6 +83,9 @@ user — hiding it is the loop's job, not this one.
   of the probe session ID (`eval-<date>-Q<NN>`).
 - On transport errors: retry once, then record the error as the answer
   (a service that 503s IS a finding, not a skipped question).
+- Circuit breaker: if more than ~30% of a mode's probes error consecutively,
+  pause that mode and flag it to the user before continuing — don't keep
+  hammering an already-degraded service.
 - Throttle: stay under ~2 req/s unless the user says otherwise.
 
 ## "Bring your outputs" fallback

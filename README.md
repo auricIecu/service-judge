@@ -1,5 +1,8 @@
 # service-judge
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Agent Skill](https://img.shields.io/badge/Agent%20Skill-SKILL.md-blueviolet)](https://agentskills.io)
+
 **Grade your AI service like a rigorous QA engineer would.**
 
 `service-judge` is an [Agent Skill](https://docs.claude.com/en/docs/agents-and-tools/agent-skills) that runs an LLM-as-judge evaluation of your LLM-powered service end-to-end:
@@ -30,19 +33,35 @@ Born from a real eval that caught broken tools, placeholder data narrated as a b
 
 Then ask: *"evaluate my service with service-judge"* (or `/service-judge`).
 
+### Codex CLI (and Cursor, Windsurf, Copilot...)
+
+The same command installs to the right place for whichever agent you use:
+
+    npx skills add auricIecu/service-judge
+
+Or manually for Codex: `git clone https://github.com/auricIecu/service-judge ~/.codex/skills/service-judge`. Codex has no subagents — the skill detects this and judges in-session with your strongest model.
+
 ### claude.ai (web)
 
-1. Download this repo as a ZIP (green **Code** button → Download ZIP).
+1. Download `service-judge.skill` from the [latest release](https://github.com/auricIecu/service-judge/releases/latest) (or the repo as ZIP via the green **Code** button).
 2. claude.ai → **Settings → Capabilities → Skills → Upload skill**.
 3. In a chat (ideally with the GitHub connector pointed at your service's repo), ask Claude to evaluate your service.
 
 > On the web, Claude can read your repo via the GitHub connector and your DB via an MCP connector. If your service's API isn't publicly reachable, the skill switches to "bring your outputs" mode — you paste or upload your service's answers and it judges them the same way.
 
-## What you need
+## What you give vs. what you get
 
-- The repo of the service (local, or connected via GitHub).
-- Ideally: **read-only** DB access (connection string or an MCP connector like Supabase's). Without it the eval still runs, but only grades behavior, not accuracy — and tells you so.
-- The strongest Claude model you have access to, for judging.
+The eval never fails hard — it adapts to whatever access you provide and
+records every limitation in the report's confidence notes:
+
+| You provide | It runs? | What the grade covers |
+|---|---|---|
+| Just the service URL | ✅ | Behavior only: errors, contradictions, deflections. No accuracy — there's no ground truth to check against (flagged in the report). |
+| URL + repo (local or GitHub connector) | ✅✅ | Discovery finds your modes, tools, and prompts → targeted questions and smart trap cases. |
+| URL + repo + **read-only** DB (connection string or MCP connector) | ✅✅✅ | The full experience: answers verified against ground truth extracted through paths that never touch your LLM. |
+| No reachable URL at all | ✅ | "Bring your outputs" mode: paste or upload your service's answers and they're judged the same way. |
+
+Plus: the strongest Claude model you have access to, for judging.
 
 ## Safety
 
