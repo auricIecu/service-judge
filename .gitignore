@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 *.zip
 eval-runs/
+# datos reales de clientes: packs y anchors viven siempre bajo raw/ (LOOP-DESIGN §7)
+.service-judge/**/raw/

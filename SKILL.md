@@ -72,15 +72,19 @@ Load `references/discovery.md` and follow it.
 
 ## Phase 2 — Sizing
 
-Present the question-count menu (exact table and confidence wording in
-`references/questions.md` §Sizing). Ask the user to pick 30 / 50 / 100.
-**Gate:** user picked a size.
+Check first: does `.service-judge/questions.golden.jsonl` exist? If yes,
+offer to REUSE it — skips generation, keeps scores comparable across runs.
+If the user declines, or the file doesn't exist, proceed exactly as before:
+present the question-count menu (exact table and confidence wording in
+`references/questions.md` §Sizing) and ask the user to pick 30 / 50 / 100.
+**Gate:** user picked a size, or user chose to reuse the golden set.
 
 ## Phase 3 — Generation & probing
 
 Load `references/questions.md` and follow it. Use the CHEAPEST capable model
 available (in Claude Code: spawn subagents with a small/cheap model for
-question generation; otherwise do it in-session).
+question generation; otherwise do it in-session). If Phase 2 reused the
+golden set, skip generation and probe those questions directly.
 **Gate (two independent conditions):**
 (a) an answer pack exists (JSONL, one record per question) — from live probing,
 or from user-provided outputs normalized into the same format if the service
@@ -115,6 +119,40 @@ report, and END the skill. If the probed endpoint persisted data, the report
 lists the `eval-*` IDs used so the user can clean up. Do not start fixing the
 service. The report is the artifact; acting on it is the user's next move
 (offer to help as a separate task if they ask).
+
+## API mode (non-interactive, for scripts/loop.py)
+
+Trigger: the invocation names a run config file (e.g. "run service-judge in
+API mode, config `.service-judge/run-<id>/config.json`"). If not triggered,
+ignore this section entirely — human mode is unchanged.
+
+Ask the user NOTHING; never wait for confirmation. All hard rules still
+apply. `config.json` stores references (paths, env var names), never
+credential literals.
+
+Per-phase deltas (everything else follows the phase files):
+
+1. **Discovery:** read `config.json`. No Context Brief confirmation — the
+   config's environment field IS the confirmation (hard rule 5 was satisfied
+   by whoever authored the config).
+2. **Sizing:** load the golden set from the config's `golden_set` path and
+   verify its sha256 against `golden_sha256`. Mismatch → abort.
+3. **Probing:** NO question generation. Probe every golden question (dev AND
+   holdout) against the configured service; write the pack to
+   `<out_dir>/raw/pack.jsonl`. Anchors come from the config's `anchors`
+   path; if absent, record the "no ground truth" degradation and continue.
+4. **Judging:** judge model = the config's `judge_model`, EXACTLY. If
+   unavailable, abort — no silent degradation (D5: a judge swap invalidates
+   the run). Write `<out_dir>/verdicts.json` (array of verdict objects,
+   schema in `scripts/providers/base.py`).
+5. **Report:** no narrative. Write `<out_dir>/grade.json` (schema:
+   `compute_grade` in `scripts/loop.py`) and print its content as the final
+   message.
+
+Abort contract: on any unrecoverable condition, print
+`{"error": "<reason>", "phase": <n>}` as the final message and stop. The
+caller treats any final output without a `total` field as a failed
+iteration.
 
 ## Large runs (optional, advanced)
 
