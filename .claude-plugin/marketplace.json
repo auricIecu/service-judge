@@ -1,0 +1,14 @@
+{
+  "name": "service-judge",
+  "owner": {
+    "name": "auricIecu",
+    "url": "https://github.com/auricIecu"
+  },
+  "plugins": [
+    {
+      "name": "service-judge",
+      "source": "./",
+      "description": "Grade your AI service like a rigorous QA engineer would: LLM-as-judge eval with ground-truth anchors, per-question scorecard, and an autonomous improvement loop."
+    }
+  ]
+}
