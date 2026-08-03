@@ -22,8 +22,9 @@ Fill `assets/report-template.md`. Rules:
   wiring fix that converts ❌s into ✅s.
 - **Machine-readable twin:** next to the report, save
   `eval-runs/<date>-scorecard.json` — one record per question:
-  `{id, mode, question, score, verdict, unanchored, improvement_comment}`
-  plus a header `{date, judge, n, anchored, global_score, degradations}`.
+  `{id, mode, question, score, verdict, unanchored, improvement_comment,
+  broken_tool, hallucinated_narrative, false_guardrail}` plus a header
+  `{date, judge, n, anchored, global_score, cross_analysis, degradations}`.
   If a previous scorecard exists in `eval-runs/`, add a short "Delta since
   <date>" section to the report: global change, questions that flipped
   verdict, fixes confirmed.

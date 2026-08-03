@@ -1,5 +1,6 @@
 {
   "name": "service-judge",
+  "description": "LLM-as-judge evaluation and improvement loop for AI services.",
   "owner": {
     "name": "auricIecu",
     "url": "https://github.com/auricIecu"

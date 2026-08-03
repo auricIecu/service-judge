@@ -17,6 +17,10 @@
     "longDescription": "Runs a full LLM-as-judge evaluation of your LLM-powered service: generates a realistic question set, probes the live service, checks answers against ground truth, and scores every answer with a strong judge model. Delivers a per-question scorecard, an overall grade, and a prioritized fix list.",
     "developerName": "auricIecu",
     "category": "Productivity",
-    "capabilities": ["Interactive"]
+    "capabilities": ["Interactive"],
+    "defaultPrompt": [
+      "Evaluate my AI service before production.",
+      "Run the service-judge improvement loop on staging."
+    ]
   }
 }

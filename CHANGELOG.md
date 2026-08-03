@@ -11,10 +11,17 @@
   in subdirectories); a raw `git clone` into a skills dir no longer does.
 - **New skill `service-judge-loop`**: sets up and drives `scripts/loop.py`
   (golden set, run config, stop-condition reporting).
-- **Loop capability (tasks 0–5 of the LOOP-DESIGN spec)**: frozen golden
-  set with dev/holdout split, non-interactive API mode, `scripts/loop.py`
-  with four stop conditions, providers refactor of `batch_eval.py`, single
-  rubric source (`references/rubric.md`).
+- **Harness-only loop**: frozen golden set with dev/holdout split and a
+  prepare → harness judgment → finalize protocol. Scoring consumes only the
+  active Claude Code or Codex limits; model API providers, keys, polling, and
+  token billing were removed.
+- **Hard gate** now fails on explicit broken-tool, hallucinated-narrative,
+  and false-guardrail findings even when a noisy judge scores them above 1.
+- **Cross-analysis** now runs with the pinned judge on every loop iteration,
+  is persisted in `cross-analysis.json` and `grade.json`, and feeds the hard
+  gate without rewriting cold per-question scores.
+- Plugin/skill versions, marketplace description, and loop token-budget
+  configuration are consistent across both distribution channels.
 
 ## 1.2 — 2026-07-03
 

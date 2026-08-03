@@ -1,5 +1,8 @@
 # service-judge — Capacidad de loop
 
+> Nota histórica: las rutas API/provider descritas aquí fueron reemplazadas
+> en v1.3 por el protocolo harness-only prepare → judge → finalize.
+
 **Estado:** diseño aprobado, sin implementar.
 **Destino en el repo:** `docs/specs/LOOP-DESIGN.md`
 
