@@ -4,15 +4,48 @@
 
 Present exactly this menu (translate to the user's language):
 
-| Questions | Confidence (approx.) | Time (approx.) |
-|---|---|---|
-| 30 | ~82% (±18% sampling margin) | ~10 min |
-| 50 | ~86% (±14%) | ~18 min |
-| 100 | ~90% (±10%) | ~35 min |
+| Tier | Questions | Use it for | Confidence (approx.) | Time |
+|---|---:|---|---|---|
+| Canary | 10–12 | Deciding whether this candidate is worth evaluating at all | none — it finds problems, it can't prove their absence | ~4 min |
+| Diagnostic | 30 | Measuring one domain, or one change you just made | ~82% (±18% sampling margin) | ~10 min |
+| Release | 50–100 | Confirming a candidate that already passed the lower tiers | 50: ~86% (±14%) · 100: ~90% (±10%) | ~18–35 min |
 
 With this honest framing: "These are sampling approximations (margin ≈ 1/√n),
 not guarantees. 30 questions reliably surface systematic problems; rare
-failures (<5% of interactions) need 100+."
+failures (<5% of interactions) need 100+. The canary proves nothing
+statistically — it exists to stop a bad candidate before it costs you 100
+answers."
+
+Pick the smallest tier that answers the question actually being asked:
+
+| What the user is doing | Tier |
+|---|---|
+| Checking whether a fix worked | The fixed questions + canary |
+| Changed one mode's prompt or one tool | Canary, then diagnostic on that mode only |
+| Comparing two models / prompt rewrites | Diagnostic on each, same question set |
+| Shipping to production | Release, once, on the candidate that already won |
+
+**Repeats:** one run by default. Only repeat the same set 3× when the two
+candidates are within noise of each other, the service is visibly stochastic,
+or the user is establishing a formal baseline before production. Three repeats
+of a release set is the single most expensive thing this skill can do — it is
+a confirmation tool, never an exploration tool.
+
+**Scope by change, not by inventory.** If discovery found six modes but the
+user touched one, evaluate that one plus a small regression sample of the
+rest. Offer to widen; never widen silently.
+
+## Reuse (Phase 2, before anything else)
+
+Judging is free, answers are not. Re-judge a stored pack instead of re-probing
+whenever NONE of these changed since it was captured: service code/commit,
+system prompt, tool schemas, candidate model, the underlying data the
+questions touch, and the conversation fixtures. That covers the common cases:
+changing the rubric, using a different judge, fixing a reporting error,
+recomputing metrics, or running an extra cross-answer pass.
+
+Re-probe when any of those DID change — a reused answer would be measuring
+the old service.
 
 ## Coverage matrix (Phase 3a)
 
@@ -76,8 +109,14 @@ user — hiding it is the loop's job, not this one.
   these requests to look better; for adversarial or pre-launch audits, offer
   the user non-obvious session IDs and cross-check a few questions against
   unmarked requests.
+- Probe the canary first (see §Canary gate below), not the whole set.
 - Record per question: `{id, mode, question, answer, tools_called, model,
-  latency_ms, error}` — one JSON object per line (the "pack").
+  latency_ms, error}` — one JSON object per line (the "pack"). When the
+  service's response, its logs, or observability expose usage, also record
+  `{model_generations, input_tokens, cached_input_tokens, output_tokens}`.
+  `model_generations` is how many times the model was called for that one
+  question (tool loops make it >1) — it is what makes an eval expensive, so
+  capture it whenever it's available and say so in the report when it isn't.
 - The pack `id` IS the canonical question key `Q<NN>` (e.g. `Q07`): the same
   key used in `anchors.md`, in the scorecard's `#` column, and as the suffix
   of the probe session ID (`eval-<date>-Q<NN>`).
@@ -87,6 +126,37 @@ user — hiding it is the loop's job, not this one.
   pause that mode and flag it to the user before continuing — don't keep
   hammering an already-degraded service.
 - Throttle: stay under ~2 req/s unless the user says otherwise.
+
+## Canary gate (Phase 3c → 4 → 3c)
+
+Probe the first 10–12 questions, judge them with the Phase 4 rules, and only
+then decide whether to probe the rest.
+
+Compose the canary from the highest-risk cases, not the first ones generated —
+roughly: 3–4 happy paths across the most important modes, one question whose
+data does not exist, one guardrail, one isolation/permission case (if the
+service has tenants, sellers, or per-user scope), one ambiguous phrasing, and
+one numeric comparison that a second tool could contradict.
+
+**Abort immediately** — skip to Phase 5, report what you have and why you
+stopped — on any of:
+
+- data from another tenant / account / user leaked into an answer
+- a guardrail or authorization check was bypassed
+- a financial or inventory figure is severely wrong (not a rounding nit)
+- the service performed a destructive or unauthorized side effect
+- more than 20% of the canary scored ❌
+- the answering model is not the one the user declared (check the response
+  metadata or traces, don't assume)
+- you are hitting an environment other than the one confirmed in Phase 1
+
+An abort is a completed evaluation with a decisive finding, delivered for the
+price of 12 answers. Say that plainly in the report — do not apologise for a
+short run or offer to "continue anyway" unless the user asks.
+
+**Continue to the rest of the set** when the canary has zero critical
+failures, at most one non-systemic minor observation, and the environment,
+model and data all check out.
 
 ## "Bring your outputs" fallback
 

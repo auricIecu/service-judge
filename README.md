@@ -8,9 +8,9 @@
 `service-judge` is an [Agent Skill](https://docs.claude.com/en/docs/agents-and-tools/agent-skills) that runs an LLM-as-judge evaluation of your LLM-powered service end-to-end:
 
 1. **Discovers** your repo, database, and observability (read-only, always).
-2. **Sizes** the eval with you — 30/50/100 questions, each with its statistical confidence.
-3. **Generates & probes**: a cheap model writes realistic questions (including trap cases) and fires them at your live service, while ground-truth anchors are extracted from your DB through paths that never touch your LLM.
-4. **Judges** every answer with the strongest Claude available (Fable 5 by default): rubric scoring plus cross-answer hunting for contradictions, broken tools, and hallucinated narratives.
+2. **Sizes** the eval with you — canary (10–12) / diagnostic (30) / release (50–100), each with its honest statistical confidence.
+3. **Generates & probes**: a cheap model writes realistic questions (including trap cases) and fires them at your live service, while ground-truth anchors are extracted from your DB through paths that never touch your LLM. The canary is probed and judged first, and the run aborts there on a leak, a bypassed guardrail, or a severely wrong figure — a decisive finding for the price of 12 answers.
+4. **Judges** every answer with the active Claude Code or Codex harness: rubric scoring plus cross-answer hunting for contradictions, broken tools, and hallucinated narratives.
 5. **Reports**: per-question scorecard, global grade, and improvement proposals ordered by ROI. Then it gets out of your way.
 
 Born from a real eval that caught broken tools, placeholder data narrated as a business collapse, and guardrails firing on legitimate questions — none of which assert-based tests had seen.
@@ -71,15 +71,26 @@ records every limitation in the report's confidence notes:
 | URL + repo + **read-only** DB (connection string or MCP connector) | ✅✅✅ | The full experience: answers verified against ground truth extracted through paths that never touch your LLM. |
 | No reachable URL at all | ✅ | "Bring your outputs" mode: paste or upload your service's answers and they're judged the same way. |
 
-Plus: the strongest Claude model you have access to, for judging.
+## What it costs
+
+Judging is free: it runs on the active Claude Code or Codex subscription
+limits. The plugin never reads an LLM API key or calls a model API directly.
+
+What you do pay for is **your own service answering the questions** — and one
+question can trigger several internal generations with long context. So the
+skill optimises for asking as few questions as possible:
+
+- The canary (10–12) runs first and aborts the run on a critical finding.
+- The size menu recommends the smallest tier that answers your actual question;
+  100 × 3 is reserved for formal baselines, never for exploration.
+- Stored answer packs are re-judged instead of re-probed when your service
+  hasn't changed — changing the rubric or the judge costs nothing.
+- Every report ends with what the run consumed: questions, generations,
+  tokens, latency, and cost per correct answer.
 
 ## Safety
 
-Read-only by design: the skill only ever `SELECT`s, never prints credentials, never edits your repo, tags every probe with an `eval-` session ID, and asks which environment (staging/production) before probing.
-
-## For big or repeated runs
-
-`scripts/batch_eval.py` (experimental) runs the per-answer scoring of the judging phase via the Anthropic Batches API (−50% cost, prompt caching; the cross-answer pass stays with Claude). Needs a terminal and `ANTHROPIC_API_KEY`. See its docstring.
+Read-only by design: the skill only ever `SELECT`s, never prints credentials, never touches your product code (eval artifacts only, in a location you approve), tags every probe with an `eval-` session ID, and asks which environment (staging/production) before probing.
 
 ## License
 

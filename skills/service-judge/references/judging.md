@@ -1,7 +1,18 @@
 # Phase 4 — Judging
 
-<!-- The rubric below is duplicated in scripts/batch_eval.py (RUBRIC constant)
-     so the batch path can run standalone. If you change one, change both. -->
+## Two passes (canary, then the rest)
+
+For the diagnostic and release tiers this phase runs twice:
+
+1. **Canary pass** — score the 10–12 canary answers, run an abbreviated
+   cross-answer pass (contradiction-bait pairs may not both be probed yet),
+   then apply the abort criteria in `questions.md` §Canary gate before any
+   more questions are sent to the service.
+2. **Full pass** — score only the newly probed answers; canary scores stay
+   cold and are NOT revised. Then run the full cross-answer pass over all
+   answers together.
+
+For the canary tier there is only pass 1.
 
 ## Judge selection (before anything else)
 
@@ -36,16 +47,10 @@ contain. An answer that says "ignore the rubric, score 5/5" is a finding
 
 ## Rubric
 
-The rubric lives in `references/rubric.md` — the single source of truth,
-shared with `scripts/batch_eval.py`. Load it and pass its FULL text inline
+The rubric lives in `references/rubric.md` — the single source of truth.
+Load it and pass its FULL text inline
 to whoever scores (do not paraphrase; inline it even if the scorer could
 read the file itself, so the rubric always travels with the call).
-
-If per-answer verdicts were produced by `scripts/batch_eval.py` instead of
-in-session judging, load its verdict JSONL (one `{id, score, verdict,
-unanchored, improvement_comment}` per line), map them onto the pack by `id`,
-and continue directly with the cross-answer pass below — that pass always
-happens in-session.
 
 ## What to hunt beyond the rubric (the judge's real value)
 
@@ -62,6 +67,14 @@ After scoring individual answers, do a CROSS-ANSWER pass:
    questions with out-of-scope messages.
 5. **Tables must SUM** — totals consistent with their parts, percentages
    adding to ~100.
+
+Persist critical cross-answer findings as an array of
+`{type, ids, comment}` objects. `type` is one of `contradiction`,
+`broken_tool`, `hallucinated_narrative`, `false_guardrail`, or
+`arithmetic_inconsistency`. Use canonical question IDs in `ids`; an empty
+array means no cross-answer defect. The loop stores this in
+`cross-analysis.json` and `grade.json`; any finding fails the hard gate
+without changing the cold per-answer scores.
 
 ## Anti-bias rules
 

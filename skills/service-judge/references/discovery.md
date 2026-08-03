@@ -61,6 +61,12 @@ Present to the user, in their language:
 > **Observability:** <found X | none found>
 > **Confidence impact:** <"full anchors available" | "no ground truth: the
 > judge can only score behavior/plausibility, accuracy will not be graded">
+> **Artifacts go to:** <`eval-runs/` | `.context/` | other> (nothing else in
+> the repo is written to)
 
-Then ask: "Is this right — the environment I should probe, and the DB access mode?" Do not proceed
-until confirmed.
+Then ask: "Is this right — the environment I should probe, the DB access mode,
+and where I may write eval artifacts?" Do not proceed until confirmed.
+
+Also note, for the cost report and for the reuse check in Phase 2: the git
+commit, the candidate model, and whether the service exposes token usage in
+its responses, logs, or traces.

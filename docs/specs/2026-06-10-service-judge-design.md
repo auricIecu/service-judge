@@ -1,5 +1,8 @@
 # service-judge — Design Spec
 
+> Historical note: direct model-API execution described here was removed in
+> v1.3. Judging now uses only the active Claude Code or Codex harness limits.
+
 **Date:** 2026-06-10
 **Status:** Approved design, pending implementation plan
 **Owner:** Likeik CX (ComercialLikeik)

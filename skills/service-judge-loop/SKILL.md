@@ -4,25 +4,21 @@ description: >-
   Set up and run the autonomous improvement loop around a service-judge
   evaluation: freeze a golden question set, write the run config, and drive
   scripts/loop.py, which re-evaluates the service after each human fix until
-  the quality gates pass (or it detects regression, stagnation, or budget
-  exhaustion). Use when the user wants to iterate on their AI service's
+  the quality gates pass (or it detects regression, stagnation, or the
+  iteration limit). Use when the user wants to iterate on their AI service's
   quality over multiple eval runs — "keep evaluating until it passes",
   "track whether my fixes improved the bot", "run the eval loop". For a
   single one-off evaluation, use the service-judge skill instead.
 license: MIT (see LICENSE)
-compatibility: >-
-  Needs a terminal, a checkout of the service-judge repo (the loop runs
-  scripts/loop.py from it), network access to the evaluated service, and an
-  ANTHROPIC_API_KEY for the batch scorer.
 metadata:
   author: auricIecu
-  version: "1.3"
+  version: "1.4.0"
 ---
 
 # service-judge-loop
 
 You orchestrate the improvement loop, not the evaluation itself. The
-evaluation contract (phases, rubric, API mode) lives in the sibling
+evaluation contract (phases and rubric) lives in the sibling
 `service-judge` skill; the loop machinery lives in its `scripts/` directory —
 in an installed plugin that is `../service-judge/scripts/` relative to this
 file; otherwise use a clone of https://github.com/auricIecu/service-judge.
@@ -30,14 +26,27 @@ file; otherwise use a clone of https://github.com/auricIecu/service-judge.
 ## What the loop does
 
 `scripts/loop.py --run .service-judge/run-<id>/` executes iterations of:
-probe every golden question against the service → score answers via the
-Anthropic Batches API with a pinned judge → write `grade.json` (per-question
-scores, dev/holdout aggregates, gates) → append to `history.json` → stop or
-wait for the next human fix.
+probe every golden question against the service → ask the current Claude Code
+or Codex harness to judge and cross-analyze the answers → write `grade.json`
+(per-question scores, cross-answer findings, dev/holdout aggregates, gates) →
+append to `history.json` → stop or wait for the next human fix.
 
-It stops on its own for exactly four reasons (D7): quality gates passed,
-regression detected (it notifies — never reverts), stagnation (<2pp
-improvement twice in a row), or iteration/token budget exhausted.
+It stops on quality gates passed, regression (it notifies — never reverts),
+stagnation (<2pp improvement twice in a row), or the iteration limit. LLM
+usage consumes only the active harness subscription/session limits. No API
+key is read and no model API is called by the plugin.
+
+**Cost.** Judging is free; the answers are not. Unlike the one-off skill, the
+loop deliberately re-probes the WHOLE golden set every iteration — that is
+what makes iteration N comparable to iteration N−1, so the canary shortcut
+does not apply here. The cost lever is therefore the golden set itself:
+`questions × max_iterations` answers is the whole bill, and it is decided
+before the first run. Size the set for the smallest thing that can prove the
+fix worked (30 is usually enough to drive an improvement loop; freeze 100 only
+when the loop's output is a release decision), tell the user that number
+up front, and keep `max_iterations` at 3 unless they ask for more.
+`loop.py` never re-probes a pack it already has on disk, so resuming an
+interrupted iteration is free.
 
 ## Your job when this skill triggers
 
@@ -55,23 +64,35 @@ improvement twice in a row), or iteration/token budget exhausted.
      "probe_cmd": "curl -s https://staging.example.com/api/chat -H 'Content-Type: application/json' -d '{\"message\": {question}, \"session_id\": {qid}}'",
      "golden_set": ".service-judge/questions.golden.jsonl",
      "golden_sha256": "<sha256 of the file>",
-     "judge_model": "claude-fable-5",
+     "judge": "codex",
      "max_iterations": 3
    }
    ```
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
-   Point `probe_cmd` at staging, not production. Optional keys: `anchors`
-   (path to ground-truth file), `max_total_tokens`.
-3. **Run it.** `ANTHROPIC_API_KEY` must be set. Then:
+   Point `probe_cmd` at staging, not production. Optional key: `anchors`
+   (path to the ground-truth file). Set `judge` to the active harness name
+   (`codex` or `claude-code`); it is recorded as metadata.
+3. **Prepare the iteration.** Run:
    `python3 <scripts-dir>/loop.py --run .service-judge/run-<id>/`
-   (where `<scripts-dir>` is the service-judge scripts location resolved
-   above).
+   The command probes once and returns `status: needs_judgment` with the pack,
+   anchors, rubric, and exact output paths.
+4. **Judge with this harness.** Follow the sibling service-judge judging
+   contract. Claude Code may use its own judge subagents; Codex judges in the
+   current session in batches of ~10. Write the requested `verdicts.json` and
+   `cross-analysis.json`. Never call an external model API.
+5. **Finalize.** Run the same `loop.py --run ...` command again. It validates
+   the harness output, writes `grade.json`/`history.json`, and returns
+   `stopped` or `needs_fix`. If `needs_fix`, wait for the human fix and repeat
+   from step 3.
    Between iterations, show the user the dev detail but ONLY the aggregate
    and gap for holdout (D4 — holdout questions must not leak into fixes).
-4. **When it stops,** report why (gates / regression / stagnation / budget),
+6. **When it stops,** report why (gates / regression / stagnation / limit),
    the grade trajectory from `history.json`, and what to fix next. Acting on
    fixes is the human's move; the loop only measures.
+
+If the harness hits its subscription/session limit, stop and resume later;
+the prepared pack remains on disk and is not reprobed.
 
 Raw probe output lands in `run-<id>/raw/` (gitignored — it may contain real
 customer data). `grade.json` and `history.json` are safe to commit.

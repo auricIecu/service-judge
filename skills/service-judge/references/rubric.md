@@ -1,8 +1,7 @@
 # Rubric — score each answer 0–5
 
-Single source of truth. Every scorer (in-session judge, subagent, or
-`scripts/batch_eval.py`) receives this text inline in its prompt; never
-paraphrase it.
+Single source of truth. Every in-session judge or harness subagent receives
+this text inline in its prompt; never paraphrase it.
 
 | Dimension | Points | What to check |
 |---|---|---|
@@ -18,3 +17,17 @@ is a good answer, not a failure.
 
 Score FIRST, then write the improvement comment. Never adjust a score to
 match a comment already written.
+
+## Critical findings (required booleans, independent of score)
+
+Every verdict must also set these three fields:
+
+- `broken_tool`: true only when the answer/tool reports a technical failure
+  but the anchor shows that the requested data exists.
+- `hallucinated_narrative`: true when the answer presents an invented number,
+  interpretation, verification, provenance, or causal narrative as fact.
+- `false_guardrail`: true when a fallback, refusal, or out-of-scope response
+  blocks a legitimate answerable question.
+
+These flags feed the binary hard gate. Set them from the evidence even when
+the numeric score is greater than 1.
