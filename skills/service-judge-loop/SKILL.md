@@ -12,7 +12,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # service-judge-loop
@@ -35,6 +35,18 @@ It stops on quality gates passed, regression (it notifies — never reverts),
 stagnation (<2pp improvement twice in a row), or the iteration limit. LLM
 usage consumes only the active harness subscription/session limits. No API
 key is read and no model API is called by the plugin.
+
+**Cost.** Judging is free; the answers are not. Unlike the one-off skill, the
+loop deliberately re-probes the WHOLE golden set every iteration — that is
+what makes iteration N comparable to iteration N−1, so the canary shortcut
+does not apply here. The cost lever is therefore the golden set itself:
+`questions × max_iterations` answers is the whole bill, and it is decided
+before the first run. Size the set for the smallest thing that can prove the
+fix worked (30 is usually enough to drive an improvement loop; freeze 100 only
+when the loop's output is a release decision), tell the user that number
+up front, and keep `max_iterations` at 3 unless they ask for more.
+`loop.py` never re-probes a pack it already has on disk, so resuming an
+interrupted iteration is free.
 
 ## Your job when this skill triggers
 

@@ -20,19 +20,40 @@ Fill `assets/report-template.md`. Rules:
 - **ROI ordering of proposals:** (questions fixed × severity) / effort.
   A broken tool whose data exists elsewhere is almost always #1 — it's a
   wiring fix that converts ❌s into ✅s.
+- **Cost & efficiency:** report what the run actually consumed, right under
+  the grade. Judge cost is 0 (it ran on the user's harness subscription) —
+  say so explicitly, so nobody "optimises" the wrong half. For the evaluated
+  service, report what the pack captured: questions asked, model generations,
+  input / cached / output tokens, and latency p50/p95. Derive
+  `generations_per_question` and, when scores are in, `cost per correct
+  answer` — comparing two candidates on score alone hides the one that got
+  there by burning 3× the context. If the pack has no usage fields, write
+  "not captured — service does not expose usage" rather than omitting the
+  section.
+- **Aborted runs:** if the canary gate aborted the run, that IS the report.
+  Lead with the abort reason and the evidence, keep the scorecard to the
+  questions actually asked, note how many answers were NOT bought, and skip
+  the confidence framing (a canary has no sampling margin). One proposal:
+  what to fix before spending a full run.
+- **Reuse status:** state whether answers were freshly probed or re-judged
+  from a stored pack, and for a reused pack, which commit/model/data revision
+  it came from.
 - **Machine-readable twin:** next to the report, save
-  `eval-runs/<date>-scorecard.json` — one record per question:
+  `<artifacts-dir>/<date>-scorecard.json` — one record per question:
   `{id, mode, question, score, verdict, unanchored, improvement_comment,
   broken_tool, hallucinated_narrative, false_guardrail}` plus a header
-  `{date, judge, n, anchored, global_score, cross_analysis, degradations}`.
-  If a previous scorecard exists in `eval-runs/`, add a short "Delta since
+  `{date, judge, n, anchored, global_score, cross_analysis, degradations,
+  usage}`. If a previous scorecard exists there, add a short "Delta since
   <date>" section to the report: global change, questions that flipped
   verdict, fixes confirmed.
-- **Deliver, then exit.** Present the report (and save it as
-  `eval-runs/<date>-report.md` in the working directory if a filesystem is
-  available). The report contains real business figures: if the directory is
-  a git repo and `eval-runs/` isn't ignored, offer to append it to
-  `.gitignore` yourself (ask first) rather than just suggesting it. Offer:
+- **Deliver, then exit.** Present the report and save it as
+  `<artifacts-dir>/<date>-report.md` if a filesystem is available.
+  `<artifacts-dir>` is the location the user approved in Phase 1 —
+  `eval-runs/` by default, a gitignored path like `.context/` if the repo
+  must stay clean (hard rule 3). The report contains real business figures:
+  if the directory is a git repo and the artifacts dir isn't ignored, offer
+  to append it to `.gitignore` yourself (ask first) rather than just
+  suggesting it. Offer:
   "Want me to help implement any of these proposals?" —
   but that is a NEW task outside this skill. Do not begin fixing things
   inside the eval run.

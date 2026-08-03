@@ -8,9 +8,23 @@
 
 ## Global grade: <points>/<N*5> (<percent>%)
 
+<!-- ABORTED RUN: replace this whole section with the abort reason, the
+     evidence for it, and how many answers were not bought. Drop the
+     confidence framing — a canary has no sampling margin. -->
+
 | Mode | Score | % |
 |---|---|---|
 | <mode> | <pts>/<max> | <pct>% |
+
+## Cost of this run
+
+| | |
+|---|---|
+| Judge | <model> — **$0**, ran on the existing harness subscription |
+| Answers requested | <N> (<canary N> canary + <rest>) · <"fresh probe" or "re-judged from pack <ref>"> |
+| Model generations | <G> (<G/N> per question) |
+| Tokens (in / cached / out) | <i> / <c> / <o> <!-- or: not captured — service does not expose usage --> |
+| Latency p50 / p95 | <ms> / <ms> |
 
 ## Scorecard
 

@@ -1,5 +1,19 @@
 # Phase 4 — Judging
 
+## Two passes (canary, then the rest)
+
+For the diagnostic and release tiers this phase runs twice:
+
+1. **Canary pass** — score the 10–12 canary answers, run an abbreviated
+   cross-answer pass (contradiction-bait pairs may not both be probed yet),
+   then apply the abort criteria in `questions.md` §Canary gate before any
+   more questions are sent to the service.
+2. **Full pass** — score only the newly probed answers; canary scores stay
+   cold and are NOT revised. Then run the full cross-answer pass over all
+   answers together.
+
+For the canary tier there is only pass 1.
+
 ## Judge selection (before anything else)
 
 The judge MUST be at least as strong as the model that produced the answers.
