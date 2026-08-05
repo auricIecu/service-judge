@@ -28,7 +28,20 @@ Born from a real eval that caught broken tools, placeholder data narrated as a b
 ## Install
 
 Two skills ship in this repo: **service-judge** (one-off evaluation) and
-**service-judge-loop** (autonomous improvement loop around it).
+**service-judge-loop** (autonomous improvement loop around it). Both install
+together from any of the channels below.
+
+    service-judge/
+    ├── skills/
+    │   ├── service-judge/        SKILL.md + references/ + assets/ + scripts/
+    │   └── service-judge-loop/   SKILL.md
+    ├── .claude-plugin/           plugin.json + marketplace.json  (Claude Code)
+    ├── .codex-plugin/            plugin.json                     (Codex CLI)
+    └── .agents/plugins/          marketplace.json                (Codex CLI)
+
+> Since 1.3 the skills live under `skills/`, not at the repo root. Cloning the
+> repo straight into a skills directory no longer works — use one of the
+> channels below.
 
 ### Claude Code — as a plugin (recommended: versioned updates)
 
@@ -53,7 +66,7 @@ Codex has no subagents — the skill detects this and judges in-session with you
 
 ### claude.ai (web)
 
-1. Download `service-judge.skill` from the [latest release](https://github.com/auricIecu/service-judge/releases/latest) (or the repo as ZIP via the green **Code** button).
+1. Download `service-judge.skill` from the [latest release](https://github.com/auricIecu/service-judge/releases/latest) — check the tag matches the version you expect; the plugin channels above always track `main`, releases are cut per version.
 2. claude.ai → **Settings → Capabilities → Skills → Upload skill**.
 3. In a chat (ideally with the GitHub connector pointed at your service's repo), ask Claude to evaluate your service.
 
@@ -70,6 +83,28 @@ records every limitation in the report's confidence notes:
 | URL + repo (local or GitHub connector) | ✅✅ | Discovery finds your modes, tools, and prompts → targeted questions and smart trap cases. |
 | URL + repo + **read-only** DB (connection string or MCP connector) | ✅✅✅ | The full experience: answers verified against ground truth extracted through paths that never touch your LLM. |
 | No reachable URL at all | ✅ | "Bring your outputs" mode: paste or upload your service's answers and they're judged the same way. |
+
+## The improvement loop
+
+The second skill, `service-judge-loop`, turns a one-off grade into a measured
+iteration. Ask for it in words — *"keep evaluating my bot until it passes"* —
+and it freezes a golden question set, then runs:
+
+    probe + judge → you fix your service → the SAME exam again → compare
+
+It stops on its own for four reasons: the gates passed, a fix caused a
+regression (it tells you — it never reverts), the score stagnated (<2pp twice
+in a row), or the iteration limit was reached. It measures; it never edits
+your service.
+
+The golden set carries a dev/holdout split, and between iterations you only
+ever see the holdout **aggregate**, never the individual questions — so your
+fixes can't quietly overfit to the exam.
+
+Unlike the one-off skill, the loop deliberately re-probes the whole set every
+iteration; that is what makes iteration N comparable to N−1, so the canary
+shortcut doesn't apply. The entire bill is `questions × max_iterations`, and
+it's decided before the first run.
 
 ## What it costs
 
@@ -94,4 +129,4 @@ Read-only by design: the skill only ever `SELECT`s, never prints credentials, ne
 
 ## License
 
-MIT © Likeik CX
+MIT © Likeik CX — built and maintained by [auricIecu](https://github.com/auricIecu).
