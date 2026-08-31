@@ -9,8 +9,17 @@ For the diagnostic and release tiers this phase runs twice:
    then apply the abort criteria in `questions.md` §Canary gate before any
    more questions are sent to the service.
 2. **Full pass** — score only the newly probed answers; canary scores stay
-   cold and are NOT revised. Then run the full cross-answer pass over all
-   answers together.
+   cold and are NOT revised. Then run the cross-answer pass over the answer
+   universe being judged: for a one-off diagnostic/release run, all answers
+   together; for `service-judge-loop`, only the current iteration's pack.
+
+In an adaptive loop iteration, a focused pack is intentionally partial and
+dev-only. Do not cite question IDs outside that pack in `cross-analysis.json`:
+`loop.py` validates findings against the graded subset and will reject
+out-of-pack IDs. All-dev contradiction groups from the last full grade are
+included whole in the focused selection, so they are re-verified promptly.
+Mixed dev+holdout groups wait for the certifying full run, where both sides
+are present again.
 
 For the canary tier there is only pass 1.
 

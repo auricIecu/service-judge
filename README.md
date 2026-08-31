@@ -101,10 +101,19 @@ The golden set carries a dev/holdout split, and between iterations you only
 ever see the holdout **aggregate**, never the individual questions — so your
 fixes can't quietly overfit to the exam.
 
-Unlike the one-off skill, the loop deliberately re-probes the whole set every
-iteration; that is what makes iteration N comparable to N−1, so the canary
-shortcut doesn't apply. The entire bill is `questions × max_iterations`, and
-it's decided before the first run.
+By default, the loop deliberately re-probes the whole set every iteration;
+that is what makes iteration N comparable to N−1, so the canary shortcut
+doesn't apply. The entire bill is `questions × max_iterations`, and it's
+decided before the first run.
+
+For cheaper development passes, set `"probe_strategy": "adaptive"`. Adaptive
+still starts with a full baseline and only a full run can satisfy the quality
+gates, but intermediate iterations probe a focused dev-only subset: failures,
+related questions, all-dev contradiction groups, and a small deterministic
+regression sample. `answer_budget` reserves `len(golden_set)` answers for the
+certifying full run before any focused probe is allowed. On a 30-question set,
+a typical adaptive run costs `30 + 10 + 10 + 30 = 80` answers instead of
+`30 × 4 = 120`.
 
 ## What it costs
 

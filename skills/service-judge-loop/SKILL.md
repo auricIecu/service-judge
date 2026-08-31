@@ -12,7 +12,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # service-judge-loop
@@ -26,27 +26,47 @@ file; otherwise use a clone of https://github.com/auricIecu/service-judge.
 ## What the loop does
 
 `scripts/loop.py --run .service-judge/run-<id>/` executes iterations of:
-probe every golden question against the service → ask the current Claude Code
-or Codex harness to judge and cross-analyze the answers → write `grade.json`
-(per-question scores, cross-answer findings, dev/holdout aggregates, gates) →
-append to `history.json` → stop or wait for the next human fix.
+select a probe pack → probe those questions against the service → ask the
+current Claude Code or Codex harness to judge and cross-analyze the pack →
+write `grade.json` (per-question scores, cross-answer findings, dev/holdout
+aggregates, gates) → append to `history.json` → stop or wait for the next
+human fix.
 
 It stops on quality gates passed, regression (it notifies — never reverts),
 stagnation (<2pp improvement twice in a row), or the iteration limit. LLM
 usage consumes only the active harness subscription/session limits. No API
 key is read and no model API is called by the plugin.
 
-**Cost.** Judging is free; the answers are not. Unlike the one-off skill, the
-loop deliberately re-probes the WHOLE golden set every iteration — that is
-what makes iteration N comparable to iteration N−1, so the canary shortcut
-does not apply here. The cost lever is therefore the golden set itself:
-`questions × max_iterations` answers is the whole bill, and it is decided
-before the first run. Size the set for the smallest thing that can prove the
-fix worked (30 is usually enough to drive an improvement loop; freeze 100 only
-when the loop's output is a release decision), tell the user that number
-up front, and keep `max_iterations` at 3 unless they ask for more.
-`loop.py` never re-probes a pack it already has on disk, so resuming an
-interrupted iteration is free.
+**Cost.** Judging is free; the answers are not. With no `probe_strategy`, or
+with `"probe_strategy": "full"`, the loop deliberately re-probes the WHOLE
+golden set every iteration; that is the backwards-compatible behavior.
+
+For cheaper development iterations, opt in to `"probe_strategy": "adaptive"`.
+Adaptive still starts with a full baseline and can only satisfy the quality
+gates on a full run. Between those full runs it probes a dev-only focused pack:
+dev failures, all-dev cross-analysis groups from the last full grade, dev
+questions with the same `(mode, type)` as a failure, and a deterministic
+regression sample. It reserves one full golden-set run inside `answer_budget`,
+forces the last permitted iteration to full, and falls back to full whenever
+the focused pack is not worth or cannot fit the remaining budget.
+
+Typical 30-question config:
+
+```json
+{
+  "probe_strategy": "adaptive",
+  "focused_max_questions": 10,
+  "regression_sample": 3,
+  "answer_budget": 70,
+  "max_iterations": 4
+}
+```
+
+With 30 questions, `answer_budget: 70` buys one focused iteration
+(`30 + 10 + 30`). Use `80` for two focused iterations. `loop.py` never
+re-probes a pack it already has on disk; if `selection.json` exists without
+`raw/pack.jsonl`, it reports `in_progress` and tells the operator what to
+delete before retrying.
 
 ## Your job when this skill triggers
 

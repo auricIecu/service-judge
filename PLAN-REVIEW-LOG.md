@@ -93,3 +93,29 @@ Aceptada. Reformulado a "que el harness elija la selección y la escriba él mis
 ## Resolución
 
 **APPROVED en la ronda 4 de 5.** Acto 1: 7 preguntas de grill. Acto 2: 20 hallazgos de Codex a lo largo de 3 rondas de REVISE — 18 aceptados (varios con modificación), 2 premisas rechazadas con razón registrada (el lock dedicado de concurrencia, y el encuadre de "fuga de holdout" en `--plan`). Ninguna línea de código escrita.
+
+---
+
+## Act 3 — Build (Codex construye, Claude verifica)
+
+### Round 1 — Codex build
+Sesión `01a04334-2192-76a1-8e3b-fbeff7b81a08`. Implementó §1–§8 en `loop.py` (+262) y `test_loop.py` (+231), más `service-judge-loop/SKILL.md`. **El proceso fue matado por el harness a mitad de §9 (docs)** — no por un error suyo. El reporte nunca se escribió.
+
+### Round 2 — Codex resume (completar §9)
+Retomada la misma sesión con la lista exacta de lo pendiente. Entregó `judging.md` (cross-answer pass acotado al pack, con la distinción all-dev vs mixto), bump 1.5.0 en `service-judge/SKILL.md`, sección adaptive en `README.md`, entrada 1.5.0 en `CHANGELOG.md`. Proof verde. Reportó por iniciativa propia una desviación: `main()` pasa `probed_count` a `select_questions()` por una clave privada `_probed_count` en una copia de la config, en vez de por parámetro, para conservar la firma pública que especifica PLAN.md §3.
+
+### Claude's verdict
+
+Diff leído completo. Proof ejecutado por mí (verde). Además monté tres runs end-to-end con un servicio falso, porque los tests unitarios no ejercitan el flujo real: baseline full → focused → certificación, retrocompatibilidad, y el guard `in_progress`.
+
+**El núcleo funciona.** Una iteración focused sondeó 4 de 8 preguntas (los 2 fallos más relacionadas por `(mode, type)`), con `holdout: null`, `full: false`, y un gasto total de 16/24 contra 32 en modo full. La reserva de presupuesto se respetó exactamente. Un run sin `probe_strategy` sondea las 8 y se comporta como v1.4.0; un `history.json` con grades sin la clave `"full"` se trata como full.
+
+**Tres defectos que los tests unitarios no detectaron, corregidos por mí:**
+
+1. **`regressed_ids` marcaba regresión en la primera medición.** `previous.get(id, 5)` trata "nunca medida" como aprobada, así que en el baseline toda pregunta fallida salía como regresión — duplicando `dev_questions_below_4` y gritando lobo en la iteración 1. Extraído a `regressed_ids()` puro: una pregunta sin score previo no puede haber regresado.
+2. **Una focused que aprueba todo salía con `reason: ""` y `hard_gate: true`.** Es exactamente el riesgo que PLAN.md anotó ("un humano podría creer que terminó"). Ahora dice `FOCUSED PASSED: ... a partial evaluation cannot certify`.
+3. **`--plan` etiquetaba `certification: false` en el baseline.** El campo era `is_full and any(fulls)`, pero cualquier corrida full puede satisfacer los gates — verificado en el E2E, donde un baseline full paró el loop con `PASSED`. Corregido a `is_full`.
+
+Cada uno lleva assertions nuevas en `test_loop.py`.
+
+**No corregido, anotado:** `_probed_count` viaja por una clave privada en la config con default `0`. No es un bug hoy (`main()` siempre la inyecta en adaptive), pero es un default que falla abierto en una ruta de costo: un llamador futuro que la omita calcularía un presupuesto disponible mayor del real. Merece un parámetro explícito si esa función crece.

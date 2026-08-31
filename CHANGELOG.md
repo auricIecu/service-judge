@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.5.0 — 2026-08-27
+
+Adaptive probing for the improvement loop. The default loop behavior is still
+full-set probing, but runs can now opt in to targeted dev-only probes during
+development while reserving one full golden-set run for certification.
+
+- **Adaptive loop strategy**: `probe_strategy: "adaptive"` selects dev
+  failures, related questions, all-dev contradiction groups, and a
+  deterministic regression sample for focused iterations.
+- **Full-only certification**: quality gates, regression, and stagnation are
+  evaluated only on full runs; `max_iterations` still counts every iteration so
+  the loop always terminates.
+- **Budget reserve**: adaptive configs require `answer_budget`, reserve
+  `len(golden_set)` answers for the certifying full run, and fall back to full
+  when a focused probe does not fit.
+- **Resume safety**: each iteration persists `selection.json`; mismatched pack
+  IDs are rejected, and `selection.json` without `raw/pack.jsonl` reports
+  `in_progress` instead of silently re-probing.
+- **Judging contract**: loop cross-analysis is scoped to the current pack, so
+  focused iterations never emit findings for answers that were not probed.
+
 ## 1.4 — 2026-08-03
 
 Cost control, from an audit of ~4.700 real eval cases. Judging is already free
