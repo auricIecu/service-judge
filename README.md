@@ -60,7 +60,7 @@ auto-update — re-run the command to pick up new versions.
 ### Codex CLI — as a plugin
 
     codex plugin marketplace add https://github.com/auricIecu/service-judge
-    codex plugin install service-judge
+    codex plugin add service-judge@service-judge
 
 Codex has no subagents — the skill detects this and judges in-session with your strongest model.
 
