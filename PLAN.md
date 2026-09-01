@@ -1,301 +1,431 @@
-# Plan: estrategia `adaptive` en loop.py — reducir respuestas sin bajar el listón de certificación
+# Plan: Service Judge 2.0 — objetivos por dimensión, autopilot y juez externo opcional
 
 _Locked via grill — by Claude + auricIecu_
 
 ## Goal
 
-Hoy `loop.py` re-sondea el golden set completo en cada iteración: con 30 preguntas y
-`max_iterations: 4` son hasta 120 respuestas pagadas al servicio. La mayoría son
-desperdicio — remedir 26 preguntas que ya pasaron para enterarse de las 4 que siguen
-rotas. Añadir una estrategia `adaptive` que en iteraciones de desarrollo sondea solo un
-subconjunto dirigido (fallos + relacionadas + parejas de contradicción + muestra de
-regresión) y reserva el examen completo para la corrida certificante. La calidad final
-no baja porque **solo una corrida full puede satisfacer los quality gates**: la
-propiedad se garantiza estructuralmente (gates filtrados a full, última iteración
-forzada a full, presupuesto que reserva su costo), no con un flag de config. Costo
-típico esperado: 30 + 10 + 10 + 30 = 80 en vez de 120.
+`service-judge` mide bien pero certifica mal y solo puede medir. Tres huecos concretos:
+(1) el `soft_gate` actual exige nota ≥4 sobre **todas** las preguntas, incluidas las
+`unanchored`, cuyo techo por rúbrica es 4/5 — con la cobertura de anchors del 50% que el
+propio perfil recomendado propone, aprobar exige que las 15 preguntas sin anchor salgan
+literalmente perfectas; (2) el usuario no puede decir qué significa "aprobado" — no hay
+objetivos configurables ni desglose por dimensión, solo un total 0–5; (3) cuando el loop
+devuelve `needs_fix` se detiene y espera a un humano, sin camino autorizado para que un
+agente aplique la corrección y siga.
+
+Este plan corrige el gate, expone los objetivos, añade un modo autopilot con frontera de
+autorización y rastro reversible, y permite —opcionalmente— que el juez sea un proceso de
+otro harness en vez de la sesión activa. Se **diseña completo aquí** y se **aterriza en
+tres tramos** (`1.6.0`, `1.7.0`, `2.0.0`), cada uno con su proof verde antes del siguiente.
 
 ## Approach
 
-### 1. `history.json` distingue corridas full de parciales
+### Tramo 1 — `1.6.0`: dimensiones, objetivos y gate correcto
 
-- El grade gana dos campos: `"full": bool` y `"probed": int`. **Los fija `main()`**, no
-  `compute_grade()` — la función no tiene forma de saber si su subconjunto es el golden
-  completo, e inferirlo del tamaño es incorrecto: un `focused_max_questions: 10` sobre un
-  golden de 10 preguntas no es una corrida certificante. Vienen de `selection.json` (§3b).
-- `should_stop()` filtra `fulls = [h for h in history if h.get("full", True)]`:
-  - gates (`hard_gate and soft_gate`) se evalúan sobre `fulls[-1]`, no `history[-1]`;
-  - REGRESSION y STAGNATION comparan solo entre elementos de `fulls`;
-  - `max_iterations` sigue contando `len(history)` completo (full + focused), para que
-    el loop siempre termine.
-- El `default=True` en `.get("full", True)` hace que runs preexistentes (grades sin el
-  campo) se comporten exactamente como hoy.
+1. **Anchors pasan a ser un artefacto legible por máquina.** Hoy `cfg["anchors"]` apunta a
+   un markdown libre (`Q01: total_customers=24305` / `Q02: anchor: none`) del que `loop.py`
+   solo comprueba la existencia. Pasa a ser `raw/anchors.snapshot.json`, el nombre que el
+   propio docstring de `loop.py` ya usa:
 
-### 2. `compute_grade()` recibe el subconjunto ya filtrado (y valida el rango de `score`)
+   ```json
+   {"Q01": {"anchor": "total_customers=24305", "query": "SELECT count(*) FROM customers"},
+    "Q02": {"anchor": null, "note": "date beyond available data — trap"}}
+   ```
 
-- `main()` selecciona las preguntas y le pasa `selected` en vez de `questions`. La
-  función no cambia su lógica interna: su universo sigue siendo "lo que me pasaron",
-  así que `missing_verdict` se calcula contra el subconjunto y no genera 20 errores
-  espurios que hoy matarían la corrida con exit 2.
-- Se endurece el check de validez que ya existe: además de `"score" in v`, exigir que
-  `score` sea numérico y esté en `[0, 5]`. Es preexistente y estrictamente fuera del
-  alcance nominal, pero `score` lo escribe un LLM y es el input directo de `hard_gate` y
-  `soft_gate`: un `50` infla `percent` por encima de 100 y pasa el soft gate. Frontera de
-  confianza, y es una cláusula dentro de un `if` que ya está ahí.
-- En el `print` final, `holdout` se reporta como `None` cuando `grade["holdout"]["max"]`
-  es 0 (corrida dev-only), no como `0` — que se leería como catástrofe en vez de
-  "no se midió". En `grade.json` el `max: 0` ya es autoexplicativo y no se toca.
+   `anchored(qid)` = la clave existe **y** `anchor` no es `null`. Se extrae en la Fase 3,
+   antes de juzgar, así que es ciego al resultado. `references/discovery.md` y
+   `references/questions.md` especifican el formato.
 
-### 3. `select_questions(questions, history, cfg, iteration) -> (selected, is_full, reason)`
+   **Dos consumidores se mueven en el mismo tramo, o la Fase 4 apunta al artefacto viejo
+   mientras los gates leen el nuevo:** `references/judging.md:36` le entrega hoy `anchors.md`
+   al juez de forma explícita, y el payload `needs_judgment` de `loop.py` publica la ruta en
+   su clave `anchors`. Ambos pasan a `anchors.snapshot.json`.
 
-Función pura. Construye `latest_score[qid]` recorriendo `history` hacia adelante — el
-score más reciente de cada pregunta, venga de una corrida full o focused. Los fallos son
-las preguntas **dev** con `latest_score < 4`.
+2. **Contrato de verdict con dimensiones.** Cada objeto de `verdicts.json` añade:
 
-Devuelve `is_full=True` (todo el golden set) ante cualquiera de estos cinco casos:
+   ```json
+   {"id":"Q01","dimensions":{"tool_choice":1,"accuracy":2,"hallucination_free":1,"directness":1},
+    "score":5,"unanchored":false,"improvement_comment":"",
+    "broken_tool":false,"hallucinated_narrative":false,"false_guardrail":false}
+   ```
 
-1. no hay ninguna corrida full en `history` (no hay baseline);
-2. ningún dev con `latest_score < 4` — pasaron, toca certificar;
-3. la focused no cabe en el presupuesto disponible (ver §4);
-4. `len(fallos) > focused_max_questions` — con 12 de 30 rotas, una focused de 10 cuesta
-   casi lo mismo, mide menos y no puede certificar;
-5. `iteration == max_iterations` — la última iteración permitida es siempre full, o el
-   run se detendría por límite sin haber podido certificar.
+   `compute_grade` valida, además de lo que ya valida: `tool_choice ∈ {0, 0.5, 1}`,
+   `accuracy ∈ {0, 1, 2}`, `hallucination_free ∈ {0, 1}`, `directness ∈ {0, 1}`,
+   `sum(dimensions) == score` **comparado en centésimas enteras** (`tool_choice` en pasos de
+   0.5 obliga a no comparar flotantes), `unanchored` booleano e `improvement_comment` string.
+   Hoy el código lee `v["verdict"]` sin validarlo (`loop.py:64-67`): un verdict sin esa clave
+   lanza `KeyError` y tumba el run.
 
-Si no, construye la selección **solo desde el split `dev`** (cableado, sin knob) como
-unión de:
+   **`verdict` sale del contrato del juez y pasa a derivarse** de `score` con las bandas de
+   `rubric.md` (`pass ≥4`, `warn 2.5–3.5`, `fail ≤2`). Es dato redundante que hoy puede
+   contradecir al score; derivarlo elimina la clase de error entera en vez de validarla.
 
-- **fallos**: dev con `latest_score < 4`;
-- **grupos de contradicción**: hallazgos de `cross_analysis` del último grade full cuyos
-  `ids` sean **todos dev**, incluidos en bloque — media pareja no detecta una
-  contradicción. Los grupos que mezclan dev y holdout se **omiten**: la selección es
-  dev-only, así que incluirlos produciría exactamente la media pareja inútil que esta
-  regla evita. Se re-verifican en la full certificante, donde ambos splits se sondean;
-- **relacionadas**: dev que comparten `(mode, type)` con algún fallo, leyendo
-  `q.get("type", "")` — `type` está en el esquema del golden set pero sets congelados
-  antes de este cambio pueden no traerlo, y esas filas simplemente agrupan por `mode`.
-  Es la única señal de parentesco disponible sin llamar a un modelo, y `loop.py` es
-  harness-only por diseño;
-- **muestra de regresión**: `regression_sample` preguntas dev con `latest_score >= 4`,
-  rotadas de forma determinista por número de iteración (p.ej. índice `i % len`), nunca
-  al azar — determinista significa que reanudar una iteración interrumpida selecciona
-  exactamente los mismos ids.
+   **`unanchored` también se deriva**, de `anchors.snapshot.json`. El juez lo sigue
+   emitiendo, pero como *aserción verificable*: si contradice al artefacto, el verdict va a
+   `errors`. Un campo escrito por el juez no puede decidir qué preguntas salen del
+   denominador de los gates — sería el camino para sacar del examen justo lo difícil.
+   Cuando `unanchored` es verdadero, `accuracy ≤ 1` (regla ya vigente en `rubric.md`).
 
-Recorte a `focused_max_questions` por prioridad: fallos → parejas → relacionadas →
-regresión. Los fallos nunca se descartan; las parejas entran completas o no entran.
+   `references/rubric.md` pasa a exigir el objeto `dimensions` y a no pedir `verdict`; sigue
+   siendo la única fuente de verdad y sigue viajando inline en el prompt del juez.
 
-### 3b. `selection.json` es la fuente de verdad de cada iteración
+3. **Los porcentajes separan exactitud verificable de comportamiento juzgable.** Se corrige el
+   defecto del `soft_gate` actual. `grade` gana:
 
-La determinancia de `select_questions()` no basta para reanudar con seguridad: un
-`iter-NN/raw/pack.jsonl` en disco pudo generarse con otra config o con código anterior,
-y re-seleccionar en la llamada de finalización daría un `selected` que no coincide con lo
-que realmente se sondeó — verdicts y preguntas desalineados, `missing_verdict` espurios.
+   **Solo `accuracy` necesita un anchor.** `tool_choice`, `hallucination_free` y
+   `directness` son juzgables sin ground truth, así que excluir las unanchored de las cuatro
+   dimensiones dejaría media prueba sin gate: un servicio con 50% de cobertura podría
+   certificar siendo perfecto en la mitad verificable y mediocre en la otra, frenado solo
+   por `score ≤ 1` y los flags críticos. El reparto es:
 
-- **Antes de sondear**, `main()` escribe `iter-NN/selection.json` con
-  `{selected_ids, full, reason, strategy}`, abierto en modo **creación exclusiva**
-  (`open(..., "x")`).
-- **Al reanudar**, si `selection.json` existe, `main()` **lo lee en vez de re-seleccionar**.
-  Esa es la lista que se pasa a `compute_grade()`, y de ahí salen `full` y `probed`. La
-  selección se decide una vez por iteración, no una vez por invocación.
-- Si `selection.json` y `pack.jsonl` no concuerdan en ids, es fatal con mensaje explícito
-  — no se adivina cuál manda.
-- **`selection.json` presente y `pack.jsonl` ausente ⇒ salida `status: "in_progress"`,
-  sin sondear.** Ese estado tiene exactamente dos causas: otro proceso está sondeando en
-  este momento, o un sondeo anterior murió a la mitad. Ambas requieren decisión humana
-  —no recuperación automática, porque solo el operador sabe cuántas respuestas se
-  facturaron realmente— así que el mensaje dice qué borrar para reintentar.
-- No se añade un archivo de lock dedicado. La salida `in_progress` no es un lock (hay
-  ventana entre comprobar y escribir), pero convierte el doble sondeo concurrente de
-  "silencioso y facturable" en "ruidoso y detenido", que es lo que importa en un tool de
-  un solo operador. Un lock con lease y expiración es maquinaria para un modo de fallo
-  que exige correr dos loops sobre el mismo directorio a propósito.
+   - `accuracy_pct` — **solo anchored**. `100 * puntos / (2 * nº anchored)`.
+   - `tool_choice_pct`, `hallucination_free_pct`, `directness_pct` — **todas las preguntas**.
+   - `pass_rate_pct` (`score ≥ 4`) — **solo anchored**: el techo de una unanchored es 4/5,
+     así que "aprobado" sobre ellas significaría "perfecto" y el umbral no diría nada.
+   - `dev` / `holdout` / `gap_pp` — **solo anchored**, por la misma razón.
+   - `anchor_coverage_pct`: `100 * nº anchored / nº total`.
+   - `unanchored_block`: `{count, percent, dimensions_pct}` — reportado aparte como
+     confianza reducida. Ya no es lo único que cubre esas preguntas: las tres dimensiones
+     independientes del anchor y los hard gates las gatean.
 
-### 4. `budget_plan(probed_count, n_golden, cfg) -> (gastado, disponible, reservado)`
+   Los **hard gates siguen aplicando a todas las preguntas**, con o sin anchor: nota ≤1,
+   `broken_tool`, `hallucinated_narrative`, `false_guardrail`, hallazgos cross-analysis,
+   errores de validación. Sin anchors la corrida no puede certificar exactitud, y lo dice;
+   lo que no hace es fingir un porcentaje sobre preguntas que nadie puede verificar.
+   `dev`/`holdout`/`gap_pp` se mantienen y pasan a calcularse también sobre anchored, con
+   `null` cuando el denominador es cero.
 
-Función pura: **`main()` lee el disco y le pasa `probed_count`**. La contabilidad por
-filas del pack es un efecto de sistema de archivos, y meterlo dentro de `budget_plan`
-destruiría la única razón por la que se extrajo — poder testear la aritmética de la
-reserva con asserts y sin montar directorios.
+   **Un denominador vacío nunca aprueba por accidente.** Un objetivo cuyo `actual` sea
+   `null` cuenta como **no cumplido**. Certificar exige además al menos una pregunta
+   anchored en dev y una en holdout; sin eso `goals.met` es falso con motivo explícito.
 
-- `probed_count` = suma de **filas de los `iter-NN/raw/pack.jsonl` en disco** — no desde
-  `history`, y no desde `selected_ids`. Son las tres opciones y cada una cuenta algo
-  distinto: `history` cuenta lo **juzgado** (subcuenta la iteración que se sondeó y quedó
-  sin juzgar, que ya facturó); `selected_ids` cuenta lo **pretendido** (sobrecuenta si el
-  proceso murió antes de sondear); las filas del pack cuentan lo **efectivamente
-  sondeado**, que es lo que el servicio cobró. El estado intermedio que haría ambigua
-  esta cuenta —selection sin pack— no puede persistir en silencio: §3b lo detiene con
-  `in_progress`. Sin archivo contador aparte, y la reanudación no re-sondea packs en
-  disco, así que no hay doble cobro.
-- `reservado = n_golden` — apartado para la full certificante, intocable.
-- `disponible = answer_budget - gastado - reservado`.
-- Si una focused no cabe en `disponible`, **no se corre**: se salta a la full final. El
-  run nunca se queda sin veredicto habiendo gastado todo el presupuesto.
-- Validación de arranque, fatal como el mismatch de sha256: con `probe_strategy:
-  "adaptive"`, si `answer_budget < 2 * n_golden` la estrategia no puede hacer nada — solo
-  caben el baseline y la full certificante, cero iteraciones focused. Mejor decirlo en el
-  segundo cero que descubrirlo en la iteración 3.
-- **El invariante de la reserva garantiza que nunca se excede el presupuesto**: ninguna
-  focused corre si dejaría `gastado > answer_budget - n_golden`, así que la full final
-  siempre cabe. Con `budget: 70` y 30 preguntas: `30 + 10 + 30 = 70`, exacto.
+   **Sin ground truth el loop mide pero no certifica.** No hay perfil behavior-only ni modo
+   alternativo: `min_anchor_coverage_pct` es un objetivo numérico más, nunca un selector de
+   modo. Con cero anchors el loop sigue reportando las tres dimensiones independientes del
+   anchor, los hard gates y la trayectoria, y `goals.met` es falso con motivo explícito
+   ("sin anchors no se puede certificar exactitud"). Certificar un servicio cuyas respuestas
+   nadie puede verificar es exactamente la aprobación falsa que este plugin existe para
+   evitar. Para una lectura puntual sin ground truth está el one-off de `service-judge`.
 
-### 5. `--plan`
+4. **Objetivos configurables.** Bloque `goals` en `config.json` con el perfil recomendado
+   como valor por defecto:
 
-Imprime y sale **sin tocar el servicio**. Muestra estrategia, el conteo,
-gastado/disponible/reservado, y si esta corrida es la certificante. Para una selección
-focused imprime los **ids exactos**; para una full imprime **conteos por split**, porque
-30 ids son ruido y el conteo comunica mejor. (No es una medida de fuga: los ids holdout
-no son secretos — el humano congeló `questions.golden.jsonl` y cada línea lleva su
-`split`; D4 protege el detalle por pregunta de los *scores*, no la existencia de los ids.)
-Es literalmente el output de `select_questions()` + `budget_plan()` — el mismo cálculo
-que usa la corrida real, no una estimación paralela que pueda divergir.
+   ```json
+   "goals": {"profile":"recommended-production-v1","min_tool_choice_pct":95,
+     "min_accuracy_pct":95,"min_hallucination_free_pct":100,"min_directness_pct":95,
+     "min_pass_rate_pct":95,"min_holdout_score_pct":95,"max_dev_holdout_gap_pp":5,
+     "min_anchor_coverage_pct":50}
+   ```
 
-### 6. Reportes nuevos en el output de `needs_fix`
+   `validate_config` valida rangos (`0–100`, enteros; `max_dev_holdout_gap_pp` entero ≥0).
+   `grade["goals"] = {"met": bool, "detail": [{"metric","target","actual","met"}]}`.
+   Los hard gates **no son configurables** — no existen claves para relajarlos.
 
-- `"full": bool` y `"probed": int` — para que nadie lea el `percent` de una focused como
-  la nota del producto.
-- `"regressed_ids"`: preguntas que tenían `latest_score >= 4` y ahora sacaron `< 4`.
-  **Reporta, no detiene.** Una muestra de 3 es evidencia débil para quemar la full
-  reservada, y el skill ya establece que el loop mide y el humano decide. La parada
-  REGRESSION agregada sigue existiendo, full-only, sin cambios.
+   **Los objetivos se evalúan dentro de `compute_grade`**, cuya firma pasa a
+   `compute_grade(verdicts, questions, judge, degradations, cross_analysis, goals, anchors)`
+   —`anchors` es el mapa cargado de `anchors.snapshot.json`, o `None`—;
+   `should_stop(history, max_iterations)` **no cambia de firma**: lee `last["goals"]["met"]`
+   y trata un grade sin esa clave como corrida inválida bajo schema v2. Así el veredicto
+   queda congelado en `history.json` junto a los números que lo produjeron, en vez de
+   recalcularse contra unos objetivos que pudieron editarse a mitad de run.
+   Sigue evaluándose **solo en corridas full**. `soft_gate` se elimina del grade.
 
-### 7. Config
+5. **`schema_version: 2` y rechazo limpio de configs v1.** `loop.py` exige
+   `schema_version == 2`; si falta o es otro, imprime
+   `{"status":"unsupported_schema", ...}` con instrucción explícita de empezar un run
+   nuevo y devuelve `2`. **No hay camino dual**: una sola definición de cada gate.
+   `questions.golden.jsonl` y su `golden_sha256` **no cambian de formato** y se reutilizan
+   tal cual, así que el activo caro (preguntas + anchors) sobrevive; lo que se pierde es el
+   `history.json`, que de todos modos era incomparable tras corregir el gate.
 
-```json
-{
-  "probe_strategy": "adaptive",
-  "focused_max_questions": 10,
-  "regression_sample": 3,
-  "answer_budget": 70,
-  "max_iterations": 4
-}
-```
+6. **Handoff del baseline sin re-sondear.** Aceptar el loop tras un one-off escribe
+   `iter-01/{selection.json, raw/pack.jsonl, verdicts.json, cross-analysis.json}` y ejecuta
+   `loop.py` una vez, que salta el probe y el `needs_judgment` y escribe `grade.json` +
+   `history.json`. **Esto no requiere código nuevo en `loop.py`** — el flujo actual ya lo
+   permite, pero **sí exige que el handoff escriba un `config.json` v2 completo**
+   (`schema_version`, `goals`, `probe_cmd`, `golden_sha256`, `anchors`,
+   `baseline_holdout_exposed`): un config heredado del one-off sería rechazado por el punto
+   5 antes de llegar a finalizar la iteración. `selection.json.selected_ids` debe ir en el mismo orden que `pack.jsonl`
+   (`read_pack_ids` compara listas por igualdad).
+   `config.json` registra `"baseline_holdout_exposed": true` y el reporte lo dice donde
+   muestra el gap: *el holdout del baseline se mostró completo antes del primer fix, así
+   que el `gap_pp` de la primera certificación es indicativo*. A partir de la segunda
+   certificación full el gap recupera su valor.
+   Si el usuario **declinó congelar** el golden set en el one-off, no hay handoff: congelar
+   ahora asignaría splits después de ver resultados. En ese caso el loop congela el set y
+   **sondea un baseline nuevo**.
 
-`probe_strategy` ausente o `"full"` = **comportamiento de sondeo y de parada idéntico al
-actual**. Los runs existentes no cambian de conducta; el esquema de `grade.json` sí crece
-de forma aditiva (`full`, `probed`), que es compatible hacia adelante pero no es "byte por
-byte" — los lectores que hagan comparación exacta de grades verán los campos nuevos.
+7. **Tamaños y wizard.** `references/questions.md` publica el menú
+   canary 10–12 / diagnóstico 30 *(recomendado)* / release 50 / release ampliado 100, con
+   focused 10/15/20 y muestra de regresión 3/4/5. `service-judge-loop/SKILL.md` gana el
+   paso guiado de objetivos: explica qué se califica, **muestra siempre el perfil
+   recomendado** con sus valores, y ofrece "usar recomendado" o "personalizar"; al
+   personalizar la columna recomendada permanece visible. Los objetivos quedan congelados
+   para esa corrida.
+   `references/reporting.md` y `assets/report-template.md` ganan la tabla por dimensión, la
+   columna objetivo-vs-resultado, el bloque unanchored separado y la cobertura de anchors.
+   (Verificado: ningún otro `.md` del repo lee `soft_gate` ni la forma de `grade.json`, así
+   que la superficie de consumidores es esa.)
 
-Con 30 preguntas, `answer_budget: 70` compra **una** iteración focused
-(`30 + 10 + 30 = 70`); para el flujo de dos focused del enunciado hay que poner **80**.
+8. **Tests** en `test_loop.py`: dimensiones válidas / inválidas / suma incorrecta (incluida
+   una suma con `tool_choice: 0.5` que solo cuadra en centésimas enteras); `accuracy > 1`
+   con `unanchored` rechazado; un verdict con `unanchored: false` para una pregunta sin
+   anchor en el snapshot va a `errors`; un verdict sin `verdict` **no** lanza `KeyError` y
+   el campo se deriva del score; `accuracy`, `pass_rate`, `dev`, `holdout` y `gap_pp`
+   calculados solo sobre anchored, y `tool_choice`, `hallucination_free` y `directness`
+   sobre todas; hard gate disparando por una pregunta unanchored; `goals.met` verdadero y
+   falso; un objetivo con `actual: null` cuenta como no cumplido; holdout sin ninguna
+   anchored no certifica; cero anchors no certifica y `goals.met` es falso con motivo;
+   objetivos fuera de rango rechazados; config v1 rechazada con
+   `unsupported_schema`; grade sin `goals` bajo v2 rechazado; handoff de `iter-01`
+   prefabricado sin sondear. Y el caso que motiva el reparto de métricas: **50% anchored
+   perfecto + 50% unanchored mediocre no certifica**, porque `tool_choice_pct`,
+   `hallucination_free_pct` y `directness_pct` se calculan sobre todas. `anchors.snapshot.json`
+   ausente o mal formado degrada con motivo, no revienta.
 
-Validación estricta de config antes de leer `history` o sondear: `probe_strategy`
-desconocido es fatal — caer en silencio a `full` ante un typo es el peor resultado, el
-usuario cree que está ahorrando y paga el precio completo. En el mismo check,
-`focused_max_questions` y `regression_sample` deben ser enteros no negativos con
-`focused_max_questions >= 1`, y con `probe_strategy: "adaptive"`, `answer_budget` debe
-existir y ser un entero positivo. Ausente o no numérico es fatal antes de tocar la
-aritmética de presupuesto: sin él no hay reserva, y sin reserva se pierde la garantía de
-que la full certificante siempre cabe.
+### Tramo 2 — `1.7.0`: autopilot
 
-### 8. Tests (`test_loop.py`, mismo estilo: import de funciones puras + asserts)
+9. **`fix-brief.json` dev-only, escrito por `loop.py`.** En `needs_fix`, `loop.py` escribe
+   `iter-NN/fix-brief.json` **a partir de los verdicts ya validados**, no de
+   `grade["per_question"]` — `compute_grade` descarta `improvement_comment` y el brief lo
+   necesita. Contiene **solo**: dev con nota <4 y sus `improvement_comment`,
+   `regressed_ids`, y hallazgos cross-analysis cuyos `ids` sean **todos** dev. Del holdout,
+   únicamente `{percent, gap_pp}` y el resultado de los gates. La redacción ocurre en el
+   origen, no en la prosa de la SKILL.
 
-- `select_questions`: los cinco disparadores de full; unión dev-only (assert de que
-  ningún id holdout aparece jamás); grupos cross all-dev incluidos completos y grupos
-  mixtos dev+holdout omitidos; filas golden sin `type` no revientan; encogimiento del
-  conjunto vía `latest_score` conforme aterrizan fixes; prioridad de recorte;
-  **determinancia** — dos llamadas con los mismos inputs devuelven los mismos ids.
-- `budget_plan`: reserva respetada; focused que no cabe → full; el flujo
-  `30 + 10 + 30` con `budget: 70` no excede; fatal si `answer_budget < 2 * n_golden` en
-  adaptive.
-- `compute_grade`: `score` no numérico, negativo o `> 5` cae en `errors` y no infla
-  `percent`.
-- `should_stop`: gates ignoran corridas parciales; REGRESSION/STAGNATION solo entre
-  fulls; `max_iterations` cuenta todas.
-- `compute_grade`: sobre un subconjunto no emite `missing_verdict` por las no sondeadas.
-- Retrocompat: grades sin `"full"` se tratan como full; config sin `probe_strategy` se
-  comporta como `"full"`.
-- Config inválida: `probe_strategy` con typo es fatal; `answer_budget` ausente en
-  adaptive es fatal.
-- **Estado de sistema de archivos, con `tempfile.TemporaryDirectory()`** (stdlib, sin
-  framework ni fixtures, mismo estilo de asserts): `selection.json` se escribe antes de
-  sondear; `selection.json` presente y `pack.jsonl` ausente devuelve `in_progress` y **no
-  sondea**; ids desalineados entre pack y selection son fatales; `probed_count` cuenta
-  filas de pack y no `selected_ids`; reanudar con `selection.json` presente **no**
-  re-selecciona aunque la config haya cambiado en medio.
+10. **El fixer consume `fix-brief.json` y nada más.** No `grade.json`, no `verdicts.json`,
+   no `raw/`, no `history.json`. En Claude Code el fixer corre como **subagente** que
+   recibe el brief inline y ninguna ruta a `.service-judge/`. Es una frontera de contrato,
+   no una jaula: el fixer tiene shell. Por eso **en autopilot el `gap_pp` se reporta
+   marcado como indicativo**, y el reporte dice que la medida limpia de generalización es
+   un run manual.
 
-### 9. Documentación
+11. **Rastro reversible.** Precondiciones duras, verificadas en un **preflight de git**
+    antes de tocar nada: hay repo, el árbol está limpio, el sistema de archivos es
+    escribible y `git switch -c` puede crear la rama (worktrees gestionados, `HEAD` detached
+    o un checkout de solo lectura fallan aquí). Si el preflight falla, **el autopilot no
+    arranca y se ofrece modo manual**, en vez de romper a mitad de la primera iteración. Rama dedicada `service-judge/run-<id>` creada desde
+    `HEAD`; nunca escribe en `main`. **Un commit por iteración**, mensaje
+    `service-judge autopilot iter-NN: <resumen>`. Así `REGRESSION` se vuelve accionable
+    (`git revert <sha>`) y el loop mantiene su promesa de solo medir. `fix.json` guarda el
+    sha, los archivos tocados, los tests ejecutados y la revisión evaluada; nunca
+    razonamiento privado ni secretos. Vive en `.service-judge/run-<id>/iter-NN/fix.json` y
+    **no se commitea**: el registro commiteado es el mensaje del commit más su diff.
 
-- `skills/service-judge-loop/SKILL.md`: sección de estrategia adaptive; **contrato
-  explícito de que en una iteración focused el cross-analysis se limita a las preguntas
-  del pack**; corrección de la sección "Cost".
-- `skills/service-judge/references/judging.md`: la línea 12 instruye hoy "run the full
-  cross-answer pass over all" — hay que acotarla al pack de la iteración. Sin esto, el
-  contrato del harness contradice la validación de `compute_grade()` y el harness
-  haciendo lo correcto rompería la corrida.
-- El output `needs_judgment` gana `full` y `selected_ids`, para que el harness sepa
-  sobre qué universo está juzgando sin tener que inferirlo del pack.
-- `README.md` + `CHANGELOG.md`; version bump `1.4.0` → `1.5.0` en ambos `SKILL.md`.
-- No se toca `.codex/plugins/cache`: se cambia el repo fuente, se valida, se reinstala.
+    **El autopilot commitea solo código de producto, nunca nada bajo `.service-judge/`.** Y se corrige la afirmación de `service-judge-loop/SKILL.md` de que
+    `grade.json`/`history.json` son seguros de commitear: `cross_analysis[].comment` puede
+    citar respuestas del servicio con datos reales de clientes. Pasa a: revísalos antes de
+    commitearlos; `raw/` sigue gitignored.
+
+12. **Puerta de autorización.** Bloque `autonomy` en `config.json`
+    (`{"mode":"manual"|"autopilot","edit_product_code","run_tests","restart_local",
+    "deploy_staging","commit"}`). Antes de empezar se muestra: coder y modelo actuales,
+    juez, repo permitido, entorno, objetivos exactos, estrategia, máximo de iteraciones,
+    presupuesto de respuestas, acciones autorizadas —**incluido commitear**— y condiciones
+    de parada. **Permite**: editar código del servicio en el repo autorizado, ejecutar
+    tests, reiniciar el servicio local, commitear en la rama del run, actualizar staging
+    solo si se marcó, y repetir el ciclo. **No permite**: tocar preguntas, anchors,
+    rúbrica, objetivos o resultados; ver detalle holdout; cambiar de coder o de juez;
+    desplegar a producción; DDL/DML o borrado de datos; secretos; migraciones destructivas;
+    revertir cambios ajenos; saltarse diálogos de seguridad del harness o del SO.
+    El valor en `config.json` es **auditoría, no autoridad**: la autorización vive en la
+    conversación. Si cambia el coder, se abre otra sesión o se amplía el alcance, se vuelve
+    a pedir. El run guarda `authorization.json` con timestamp, alcance, repo, entorno,
+    acciones permitidas y el texto exacto que se aprobó. Es **necesario pero nunca
+    suficiente**: sin él el autopilot no arranca, y con él tampoco arranca si la
+    autorización no ocurrió en esta conversación.
+
+13. **Ciclo del piloto**, por iteración: leer `fix-brief.json` → agrupar por causa raíz →
+    escoger la corrección de mejor impacto/esfuerzo → aplicar → tests → reiniciar
+    local/staging según lo autorizado → commit → ejecutar la focused o full que toque →
+    juzgar → comparar contra los objetivos → continuar, certificar o parar. Una regresión
+    en focused se vuelve prioridad del siguiente fix; una regresión confirmada en full
+    detiene el piloto.
+
+    **Invariante explícito de las focused**: una focused no sondea holdout, así que **no
+    calcula `gap_pp`, no evalúa `goals` y no puede certificar**. Solo produce brief de dev y
+    marca prioridades. Es lo que ya hace el filtrado por `fulls` en `should_stop`, ahora
+    escrito como invariante en vez de como efecto secundario.
+
+14. **Tests**: `fix-brief.json` no contiene ningún id holdout ni ningún comentario de
+    holdout; grupos cross-analysis mixtos dev+holdout se excluyen del brief; árbol sucio
+    bloquea el arranque; sin `autonomy.mode == "autopilot"` no se escribe brief de fix
+    automático.
+
+### Tramo 3 — `2.0.0`: juez externo opcional
+
+15. **Consentimiento de egreso antes de activar un juez externo.** El pack contiene
+    respuestas reales del servicio —la propia SKILL dice que `raw/` puede llevar datos de
+    clientes— y los anchors salen de su base de datos. Un juez externo los **envía a otro
+    proveedor**. Antes de habilitar `judge_cmd` se muestra exactamente qué archivos salen
+    (`{prompt}`, `{pack}`, `{rubric}`, `{anchors}`), a qué harness, y se pide consentimiento
+    explícito; queda registrado en `authorization.json` y en el reporte.
+    **`authorization.json` tiene dos ubicaciones**, porque el juez externo también se elige
+    en el one-off, que no tiene run dir: en el loop,
+    `.service-judge/run-<id>/authorization.json`; en el one-off,
+    `<artifacts-dir>/authorization.json`, donde `<artifacts-dir>` es el directorio que el
+    usuario aprobó en la Fase 1 (`eval-runs/` por defecto). Misma forma, mismo contenido. El modo por defecto
+    (juez en sesión) no tiene egreso nuevo y no pregunta.
+
+16. **`judge_cmd` es una plantilla de shell en `config.json`**, con el mismo contrato de
+    confianza que el `probe_cmd` que ya existe ("same trust as a Makefile"). Placeholders
+    **solo de rutas**: `{prompt}`, `{pack}`, `{rubric}`, `{anchors}`, `{out}`. El contenido
+    del pack **nunca** entra en la línea de comando — estrictamente más seguro que el
+    `probe_cmd` actual, que sí interpola texto de pregunta con `shlex.quote`. Las rutas se
+    expanden **absolutas y con `shlex.quote`**: un directorio con espacios o comillas
+    rompería o inyectaría el comando.
+
+17. **`judge_cmd` ausente = comportamiento actual.** El harness activo juzga en sesión,
+    `status: needs_judgment`, coste cero. Presente: `loop.py` lanza el comando con
+    `subprocess.run(shell=True, timeout=cfg.get("judge_timeout", 900))`, lee `{out}`,
+    valida y continúa. Es un `if` junto a `probe()`, **no hay `judge_runner.py`**: la
+    validación del JSON pertenece a `compute_grade`, que ya valida verdicts, y un segundo
+    validador en otro archivo duplicaría ese código.
+
+18. **Un reintento de formato, luego pausa.** JSON inválido o `{out}` ausente → se reinvoca
+    una vez con una instrucción de formato; un segundo fallo devuelve
+    `{"status":"judge_failed", ...}` con el stderr recortado y **no** consume iteración ni
+    escribe `history.json`. Salida no cero del comando se trata igual.
+    El juez escribe en un temporal y `loop.py` hace `rename` atómico a `verdicts.json` /
+    `cross-analysis.json` **solo después de parsear y validar**, para que un fallo no deje
+    basura que la siguiente invocación confunda con trabajo hecho.
+
+19. **Congelado y drift.** `grade["judge"]` pasa de string a
+    `{"label": "codex/gpt-5.5", "cmd_sha256": "<sha>"}`. El reporte muestra **`label` y
+    `cmd_sha256`, no la cadena literal**: la hard rule 2 de `service-judge/SKILL.md` prohíbe
+    imprimir credenciales, y un `judge_cmd` puede llevar headers, tokens o rutas sensibles
+    inline. Por lo mismo, la SKILL del loop pasa a instruir que
+    `.service-judge/run-*/config.json` se gitignoree — ya hoy contiene el `probe_cmd`, que
+    típicamente lleva la API key del servicio evaluado, y eso nunca se dijo. Antes de juzgar, `loop.py` compara el sha del `judge_cmd`
+    actual contra el del **primer grade del historial**; si difiere, para con `judge_drift`.
+    Comparar contra el config no sirve: editar el config borra el valor anterior, que es
+    justo el caso que hay que detectar.
+
+20. **Selección del juez al inicio de `service-judge`.** El coder es, sin selector, el
+    harness y modelo de la sesión actual. Antes de evaluar se pregunta, sin opción
+    preseleccionada, qué juez usar: la sesión actual (gratis, por defecto si el usuario no
+    elige otra cosa), Codex, Claude Code o DeepSeek Harness. **No hay resolución automática
+    del "modelo más capaz"**: ninguna de las tres CLIs lo expone (`codex` no tiene
+    `models list`; `claude --model` acepta alias pero no enumera; `dsh` bootea perfiles, no
+    modelos). Se usa el default configurado del harness elegido, se **muestra antes de
+    gastar respuestas**, y es sobreescribible dentro del propio `judge_cmd`.
+    `references/judging.md` publica los tres comandos exactos copy-paste, cada uno con su
+    aislamiento (`codex exec -s read-only … < /dev/null`; `claude -p` con
+    `--disallowed-tools` y sin persistencia; `dsh --profile` con perfil de juez).
+    `references/judging.md` exige hoy un juez "at least as strong" y sin herramientas; con
+    un comando de shell el plugin **no puede verificar ninguna de las dos cosas**. Esa
+    garantía se degrada a **advertencia auditable**: el reporte imprime `label`,
+    `cmd_sha256` y una versión redactada del comando, y dice que el aislamiento y la
+    potencia del juez externo son responsabilidad de quien lo configuró. Sigue siendo garantía real solo en el modo por defecto (juez en sesión).
+
+21. **Corrección del discurso de costo.** `SKILL.md` dice hoy *"Judging is free"*: cierto
+    solo cuando el juez es la sesión activa. Pasa a: **gratis por defecto; si eliges un
+    juez externo, consume la suscripción de ese otro harness**. README, `SKILL.md` y
+    `references/judging.md` se corrigen; se elimina también la afirmación obsoleta de que
+    Codex no tiene subagentes.
+
+22. **Tests** con un ejecutable falso: el comando recibe rutas y nunca contenido del pack;
+    un `--run` con espacios y comillas en la ruta se ejecuta correctamente; JSON inválido
+    reintenta exactamente una vez y luego `judge_failed`; salida no cero pausa sin escribir
+    historia; un fallo tras escritura parcial no deja `verdicts.json` corrupto (rename
+    atómico); `judge_cmd` distinto a mitad de run produce `judge_drift` comparando contra
+    el primer grade; `judge_cmd` ausente conserva el flujo `needs_judgment` actual; el
+    reporte nunca imprime la cadena literal de `judge_cmd`.
+
+23. **Manifiestos.** La versión vive en exactamente cuatro sitios:
+    `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` y el `metadata.version` de
+    ambas `SKILL.md`. **Los dos `marketplace.json` no tienen campo `version`** —verificado—
+    así que no se bumpean. Un tramo, una versión (`1.6.0`, `1.7.0`, `2.0.0`), una entrada
+    de `CHANGELOG.md`.
 
 ## Key decisions & tradeoffs
 
-- **`require_full_final` se elimina de la config propuesta.** Con los gates filtrados a
-  full, la última iteración forzada a full y el presupuesto reservando su costo, la
-  propiedad está garantizada por tres lados. El knob no la añade — solo permite
-  *apagarla*, y "certifica con un examen parcial" no es una opción que valga la pena
-  ofrecer. Un flag cuyo único valor útil es `true` es una línea de código, no config.
-- **Sin reuso de baseline entre `run-<id>`.** El baseline de un run viejo midió una
-  versión distinta del servicio, y `loop.py` no puede saber cuál: `golden_sha256`
-  congela el examen, no el sujeto. El ahorro sería de 30 respuestas una sola vez; el
-  modo de fallo es sondear las preguntas que fallaban en el código de hace tres semanas
-  y quedar ciego a lo que se rompió desde entonces. **El costo típico honesto es 80, no
-  50.** Los 50 solo aplican al retomar un run existente que ya tiene su full — algo que
-  ya funciona hoy sin código nuevo.
-- **La selección es dev-only, cableado, sin knob.** Tocar holdout en corridas focused lo
-  rompe dos veces: expone detalle por pregunta al humano (viola D4) y lo re-sondea
-  persiguiendo fallos, que es exactamente cómo un conjunto reservado deja de serlo. Un
-  knob ahí solo serviría para desactivar la protección.
-- **"Relacionada" = misma `(mode, type)`.** Similitud semántica requeriría un modelo, y
-  `loop.py` nunca llama a uno. La alternativa (que el harness elija la selección y la escriba él mismo)
-  añade un round-trip por iteración para ganar poco.
-- **Selección por último-valor-conocido, no por último grade full.** Si siempre mirara
-  la última full, las iteraciones 2 y 3 sondearían las mismas 10 preguntas incluso las
-  ya arregladas. Con `latest_score` el conjunto se encoge solo, y "ningún dev por debajo
-  de 4" es la señal natural de certificar.
-- **Cross-analysis parcial se resuelve en el contrato, no en el código.** La validación
-  de `ids ∈ split_of` se deja como está; `SKILL.md` y `judging.md` acotan el
-  cross-analysis al pack. Los grupos **all-dev** de la full anterior entran completos en
-  la selección, así que se re-verifican de inmediato; los **mixtos dev+holdout** esperan a
-  la full certificante (ver Risks). Relajar la validación sería aceptar hallazgos sin
-  evidencia en esta iteración.
-- **STAGNATION deja de disparar en la práctica.** Filtrada a fulls, necesita 3 corridas
-  full y un run adaptive típico tiene 2. Se acepta y se documenta: `answer_budget` es un
-  freno de costo directo y duro, que es lo que STAGNATION aproximaba indirectamente. Dos
-  frenos para lo mismo es uno de más.
-- **`regressed_ids` reporta sin detener** (ver §6).
-- **El invariante de reanudación es `selection.json`, no la determinancia.** En el grill
-  argumenté testear determinancia en vez de montar tmpdirs, porque entonces reanudar
-  dependía de `select_questions` determinista más el `if not pack_path.exists()` que ya
-  existía — todo puro. Ese mecanismo se reemplazó: ahora la selección se decide **una vez
-  por iteración** y se persiste, así que reanudar es correcto aunque la config cambie en
-  medio, que es un caso que la determinancia nunca cubrió. El invariante pasó a ser
-  estado de sistema de archivos, y por eso los tests lo siguen hasta ahí con `tempfile`.
-  La determinancia se sigue testeando, pero ya no carga sola con la garantía.
+- **Tres tramos, no un 2.0 monolítico.** v1.5.0 fue una sola pieza (+610 líneas) y aun así
+  se le escaparon tres bugs a los unit tests, detectados solo montando E2E a mano. Seis
+  piezas es ~4× ese diff y el paso que atrapa los bugs no escala. Además, cambiar rúbrica,
+  juez y tamaño a la vez deja `golden_sha256` intacto pero **ningún `history.json`
+  comparable**: el fallo caro no rompe, miente. Se paga: tres ciclos de release en vez de uno.
+- **Los porcentajes separan exactitud verificable de comportamiento juzgable; los hard
+  gates van sobre todo.** Es la regla que el diseño ya aplicaba a `accuracy`, extendida a
+  las demás métricas que dependen del anchor. Se descartó subir el techo de las unanchored a 5
+  (le daría a lo no verificable el mismo valor que a lo verificado), una banda de pass
+  distinta para unanchored (umbral arbitrario) y normalizar `score/max` (rompe la banda 0–5
+  de la rúbrica, el reporte y todo el historial). Se paga: con cobertura baja el loop mide
+  poco — y lo dice, en vez de fingir.
+- **Sin compatibilidad de runs v1.** 1.5.0 llegó a `main` el 2026-09-01; la superficie real
+  de runs en vuelo es una máquina. Mantener el camino dual obligaría a conservar vivo un
+  `soft_gate` que sabemos incorrecto y a que `should_stop` compare `dev.percent` calculados
+  con fórmulas distintas — el fallo silencioso de la Q1 metido dentro del release. Se paga:
+  una corrida a medias se reempieza (30 respuestas, mismo golden set).
+- **Redacción en el origen, y honestidad sobre su fuerza.** El holdout está hoy en claro en
+  `grade.json`, `history.json`, `raw/pack.jsonl` y `verdicts.json`, y la única barrera es
+  una línea de prosa que regula lo que el agente *enseña*, no lo que *sabe*. En autopilot el
+  que arregla es el mismo contexto que leyó los cuatro. `fix-brief.json` evita la fuga
+  accidental; no es una jaula, así que el `gap_pp` en autopilot se marca indicativo. Se
+  descartó vender el gap como medida plena apoyándose en el contrato.
+- **Commit por iteración.** Sin él, `REGRESSION: dev dropped 87 -> 79 after the last fix`
+  es una parada que no puedes accionar: no existe "el último fix" como objeto separable.
+  La alternativa (`fix.patch` por iteración, sin commitear) conserva el historial limpio
+  pero convierte revertir en aplicar parches invertidos a mano. Se paga: el repo recibe
+  commits automáticos en una rama dedicada, y commitear se lista explícitamente en la
+  autorización.
+- **El anchor solo condiciona lo que sin él no es juzgable.** `accuracy`, `pass_rate`, `dev`,
+  `holdout` y `gap_pp` van sobre anchored; `tool_choice`, `hallucination_free` y `directness`
+  van sobre todas. Excluir las unanchored de las cuatro dimensiones —mi primera versión—
+  abría el hueco de certificar siendo perfecto en la mitad verificable y mediocre en la otra.
+- **Sin ground truth no hay certificación, y no hay perfil que la conceda.** Se descartó
+  `behavior-only-v1`: convertía un valor numérico (`min_anchor_coverage_pct: 0`) en selector
+  de modo, obligaba a un umbral inventado y le daba a un servicio no verificable un sello
+  que este plugin existe para negar.
+- **`unanchored` se deriva, no se cree.** Codex señaló que dejar que el juez declare qué
+  preguntas salen del denominador es el camino directo a sacar del examen justo lo difícil.
+  Cuesta convertir el snapshot de anchors en JSON; a cambio, el campo que decide los gates
+  deja de ser dato autorreportado por la parte evaluadora.
+- **`verdict` deja de pedirse al juez y se deriva del score.** Un campo redundante que puede
+  contradecir a su propia fuente es una clase de error, no una validación pendiente.
+- **Plantilla `judge_cmd` en vez de tres adaptadores.** La diferencia real entre los
+  adaptadores es una cadena de comando; el repo ya resolvió ese patrón con `probe_cmd`.
+  Elimina `judge_runner.py`, `test_judge_runner.py`, `assets/dsh-judge.patch.yml` y el
+  compromiso de mantener un asset atado a `dsh 0.1.1-rc.2` (developer preview). Soporta
+  harnesses que aún no existen sin tocar código. **Se paga: el aislamiento deja de estar
+  garantizado por nosotros** — un usuario puede pegar `claude -p` sin `--disallowed-tools`.
+  Mitigación: los tres comandos se publican exactos, y el reporte lleva `label`,
+  `cmd_sha256` y el comando redactado, así que un juez mal aislado es visible en la
+  evidencia (un adaptador con un flag mal puesto, no).
+- **Sin resolución automática del "modelo más capaz".** No existe API para ello en ninguna
+  de las tres CLIs; una lista de prioridad hardcodeada se pudre en semanas y un probe por
+  candidato cuesta llamadas y confunde "modelo no permitido" con "sin cuota". Se paga: la
+  promesa de "escoge solo el más inteligente" se sustituye por "usa el que configuraste, y
+  te lo enseña antes de gastar".
 
 ## Risks / open questions
 
-- **`(mode, type)` como proxy de parentesco es grueso.** Si el golden set tiene pocos
-  `mode` distintos, "relacionadas" puede arrastrar casi todo el dev y saturar el cap,
-  degradando la focused a algo cercano a una full. El recorte por prioridad lo contiene
-  (los fallos nunca se pierden), pero el ahorro real depende de la granularidad del set.
-  Mitigación: `--plan` lo hace visible antes de gastar una sola respuesta.
-- **Una focused puede dar `hard_gate: true` en su JSON de salida** aunque no certifique.
-  `should_stop` la ignora correctamente, pero un humano leyendo el output podría creer
-  que terminó. Por eso `"full": false` va en el output; queda por validar que el fraseo
-  del skill sea inequívoco.
-- **Los grupos cross mixtos dev+holdout no se re-verifican hasta la full certificante.**
-  Es la consecuencia deliberada de la selección dev-only; el riesgo es que una
-  contradicción entre splits sobreviva varias iteraciones sin visibilidad. Aceptado: la
-  full final la detecta, y no puede certificar con ella presente.
+- `fix-brief.json` es una frontera de contrato con un agente que tiene shell. Mitigado y
+  declarado, no resuelto. Si en la práctica se observa al fixer leyendo `.service-judge/`,
+  la siguiente iteración de diseño tendría que mover el brief fuera del repo del servicio.
+- El commit por iteración asume que el repo del servicio y el repo donde vive
+  `.service-judge/` son el mismo. Si el usuario tiene el golden set en otro sitio, la
+  precondición de árbol limpio hay que evaluarla contra el repo del **servicio**.
+- Un `judge_cmd` que exceda `judge_timeout` con un pack grande deja el run sin iteración
+  consumida pero habiendo pagado las respuestas del servicio. Aceptado: las respuestas ya
+  están en `pack.jsonl` y no se re-sondean.
+- El perfil "recomendado" (`min_anchor_coverage_pct: 50`) sigue siendo una apuesta sin
+  datos: no hay evidencia de cuántos servicios reales alcanzan 50% de cobertura de anchors.
+- Un servicio sin ground truth **nunca podrá certificar** con el loop. Es deliberado, pero
+  es una limitación dura: esos usuarios solo obtienen trayectoria, dimensiones de
+  comportamiento y hard gates. Si resulta ser el caso mayoritario, habrá que revisarlo.
+- Cambiar `anchors` de markdown a `anchors.snapshot.json` invalida los snapshots existentes.
+  Es el mismo corte que el rechazo de configs v1 y va en el mismo tramo, pero hay que
+  decirlo en el `CHANGELOG` de `1.6.0`.
+- `authorization.json` es un registro de auditoría, no un mecanismo de aplicación: nada
+  impide que un agente lo escriba él mismo. Su valor es la trazabilidad posterior.
 
 ## Out of scope
 
-- Reuso de baseline entre `run-<id>` distintos.
-- Selección semántica de preguntas relacionadas (requeriría llamar a un modelo).
-- Cambiar el rubric, la semántica de puntuación, o el esquema del golden set. (El
-  contrato de juicio **sí** cambia en un punto acotado y necesario: `judging.md` debe
-  limitar el cross-answer pass al pack de la iteración — ver §9. Sin eso, el harness
-  siguiendo el contrato actual rompería la corrida.)
-- Editar la copia instalada en `.codex/plugins/cache`.
-- Nuevas condiciones de parada más allá de las cuatro existentes.
-- Cambiar el comportamiento de runs con `probe_strategy` ausente o `"full"`.
+- Instalar o autenticar Codex, Claude Code o DeepSeek automáticamente.
+- Guardar API keys o llamar directamente a APIs de modelos.
+- Jueces en ensemble, votación múltiple o cambio de juez entre iteraciones.
+- Despliegue automático a producción, migraciones destructivas, DDL/DML.
+- CI, servicio persistente o interfaz gráfica fuera del chat.
+- Migración automática de `history.json` de v1 a v2.
+- Ampliar un golden set congelado a mitad de un run (cambia el sha → run nuevo).
