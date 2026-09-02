@@ -336,6 +336,13 @@ check("grade without goals is invalid under schema v2",
                     "hard_gate": True, "full": True}], 5)[1].startswith("INVALID_GRADE"))
 
 # autopilot: dev-only brief and preflight decisions
+empty_brief = {"dev": [], "regressed_ids": [], "cross_analysis": []}
+check("an empty fix brief is not actionable",
+      not loop.brief_is_actionable(empty_brief))
+for actionable_key in ("dev", "regressed_ids", "cross_analysis"):
+    check(f"a non-empty {actionable_key} makes a fix brief actionable",
+          loop.brief_is_actionable(empty_brief | {actionable_key: ["fix"]}))
+
 brief_verdicts = [
     v("Q1", 3, dimensions={"tool_choice": 1, "accuracy": 1,
                             "hallucination_free": 1, "directness": 0})
@@ -632,9 +639,14 @@ with tempfile.TemporaryDirectory() as d:
     loop.collect_git_preflight = lambda repo, branch: (True, True, True, True)
     try:
         root = pathlib.Path(d)
-        run = make_run(root, QS, {"autonomy": autopilot_autonomy})
+        previous_focused = g(100, full=False)
+        previous_focused["per_question"] = [
+            {"id": "Q1", "score": 5}, {"id": "Q2", "score": 5},
+        ]
+        run = make_run(root, QS, {"autonomy": autopilot_autonomy},
+                       [previous_focused])
         authorize(run, root)
-        iter_dir = run / "iter-01"
+        iter_dir = run / "iter-02"
         raw_dir = iter_dir / "raw"
         raw_dir.mkdir(parents=True)
         write_json(iter_dir / "selection.json",
@@ -657,6 +669,11 @@ with tempfile.TemporaryDirectory() as d:
               and saved["allowed_actions"] == {
                   key: value for key, value in autopilot_autonomy.items()
                   if key != "mode"})
+        check("needs_fix reports only dev failure and regression counts",
+              msg["reason"].startswith("NEEDS_FIX:")
+              and "1 dev question" in msg["reason"]
+              and "1 dev regression" in msg["reason"]
+              and "Q2" not in msg["reason"])
         check("the run keeps a raw/ directory for the anchors snapshot",
               (run / "raw").is_dir())
     finally:
@@ -664,6 +681,83 @@ with tempfile.TemporaryDirectory() as d:
             del loop.collect_git_preflight
         else:
             loop.collect_git_preflight = old_collect
+
+with tempfile.TemporaryDirectory() as d:
+    old_collect = loop.collect_git_preflight
+    loop.collect_git_preflight = lambda repo, branch: (True, True, True, True)
+    try:
+        root = pathlib.Path(d)
+        holdout_failure = [v("Q1", 5), v("Q2", 3, dimensions={
+            "tool_choice": 1, "accuracy": 1,
+            "hallucination_free": 1, "directness": 0,
+        })]
+
+        run = make_run(root, QS, {"autonomy": autopilot_autonomy})
+        authorize(run, root)
+        iter_dir = run / "iter-01"
+        raw_dir = iter_dir / "raw"
+        raw_dir.mkdir(parents=True)
+        write_json(iter_dir / "selection.json",
+                   {"selected_ids": ["Q1", "Q2"], "full": True,
+                    "reason": "fixture", "strategy": "full"})
+        write_jsonl(raw_dir / "pack.jsonl",
+                    [{"id": q["id"], "mode": q["mode"],
+                      "question": q["question"], "answer": "fixture"}
+                     for q in QS])
+        write_json(iter_dir / "verdicts.json", holdout_failure)
+        write_json(iter_dir / "cross-analysis.json", [])
+        rc, out, _ = run_main(run)
+        msg = json.loads(out)
+        check("full autopilot stops when only hidden work remains",
+              rc == 0 and msg["status"] == "stopped"
+              and msg["reason"].startswith("NOTHING_ACTIONABLE:")
+              and "fix_brief" not in msg
+              and not (iter_dir / "fix-brief.json").exists()
+              and (iter_dir / "grade.json").exists()
+              and (run / "history.json").exists())
+
+        manual_root = root / "manual"
+        manual_root.mkdir()
+        manual_run = make_run(manual_root, QS)
+        manual_iter = manual_run / "iter-01"
+        manual_raw = manual_iter / "raw"
+        manual_raw.mkdir(parents=True)
+        write_json(manual_iter / "selection.json",
+                   {"selected_ids": ["Q1", "Q2"], "full": True,
+                    "reason": "fixture", "strategy": "full"})
+        write_jsonl(manual_raw / "pack.jsonl",
+                    [{"id": q["id"], "mode": q["mode"],
+                      "question": q["question"], "answer": "fixture"}
+                     for q in QS])
+        write_json(manual_iter / "verdicts.json", holdout_failure)
+        write_json(manual_iter / "cross-analysis.json", [])
+        rc, out, _ = run_main(manual_run)
+        check("manual mode still returns needs_fix for hidden-only failures",
+              rc == 0 and json.loads(out)["status"] == "needs_fix")
+
+        focused_root = root / "focused"
+        focused_root.mkdir()
+        focused_run = make_run(focused_root, QS,
+                               {"autonomy": autopilot_autonomy})
+        authorize(focused_run, focused_root)
+        focused_iter = focused_run / "iter-01"
+        focused_raw = focused_iter / "raw"
+        focused_raw.mkdir(parents=True)
+        write_json(focused_iter / "selection.json",
+                   {"selected_ids": ["Q1"], "full": False,
+                    "reason": "focused", "strategy": "adaptive"})
+        write_jsonl(focused_raw / "pack.jsonl",
+                    [{"id": "Q1", "mode": "sales", "question": "?",
+                      "answer": "fixture"}])
+        write_json(focused_iter / "verdicts.json", [v("Q1", 5)])
+        write_json(focused_iter / "cross-analysis.json", [])
+        rc, out, _ = run_main(focused_run)
+        msg = json.loads(out)
+        check("focused autopilot never stops as nothing actionable",
+              rc == 0 and msg["status"] == "needs_fix"
+              and msg["reason"].startswith("FOCUSED PASSED"))
+    finally:
+        loop.collect_git_preflight = old_collect
 
 with tempfile.TemporaryDirectory() as d:
     root = pathlib.Path(d)
@@ -697,10 +791,26 @@ with tempfile.TemporaryDirectory() as d:
         msg = json.loads(out)
         assert rc == 0 and msg["status"] == "plan"
         assert msg["strategy"] == "adaptive" and msg["full"] is True
+        assert msg["autopilot_preflight"] == "not_applicable"
         assert not (run / "iter-01").exists()
         assert calls == []
     finally:
         loop.probe = old_probe
+
+with tempfile.TemporaryDirectory() as d:
+    old_collect = loop.collect_git_preflight
+    loop.collect_git_preflight = lambda repo, branch: (True, True, True, True)
+    try:
+        root = pathlib.Path(d)
+        run = make_run(root, QS, {"autonomy": autopilot_autonomy})
+        authorize(run, root)
+        rc, out, _ = run_main(run, "--plan")
+        msg = json.loads(out)
+        check("autopilot plan reports a passed preflight",
+              rc == 0 and msg["status"] == "plan"
+              and msg["autopilot_preflight"] == "passed")
+    finally:
+        loop.collect_git_preflight = old_collect
 
 # regressed_ids: a first measurement is not a regression
 assert loop.regressed_ids([{"id": "Q1", "score": 2}], {}) == []
@@ -711,7 +821,8 @@ assert loop.regressed_ids([{"id": "Q1", "score": 5}], {"Q1": 5}) == []
 # plan_output: any full run can certify, including the baseline with empty history
 base = loop.plan_output(1, "adaptive", [{"id": "Q1", "split": "dev"}], True,
                         "no_full_baseline", 0, 10, 5, [])
-assert base["certification"] is True and base["split_counts"] == {"dev": 1}
+assert (base["certification"] is True and base["split_counts"] == {"dev": 1}
+        and base["autopilot_preflight"] == "not_applicable")
 focused = loop.plan_output(2, "adaptive", [{"id": "Q1", "split": "dev"}], False,
                            "focused", 5, 5, 5, [{"full": True}])
 assert focused["certification"] is False and focused["selected_ids"] == ["Q1"]

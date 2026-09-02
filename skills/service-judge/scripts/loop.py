@@ -402,6 +402,10 @@ def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
     }
 
 
+def brief_is_actionable(brief: dict) -> bool:
+    return any(brief[key] for key in ("dev", "regressed_ids", "cross_analysis"))
+
+
 def git_preflight_decision(repo_present: bool, tree_clean: bool,
                            filesystem_writable: bool,
                            branch_creatable: bool) -> tuple[bool, str]:
@@ -579,12 +583,14 @@ def holdout_percent(grade: dict) -> int | None:
 
 def plan_output(iteration: int, strategy: str, selected: list[dict], is_full: bool,
                 reason: str, spent: int, available: int | None,
-                reserved: int | None, history: list[dict]) -> dict:
+                reserved: int | None, history: list[dict],
+                autopilot_preflight: str = "not_applicable") -> dict:
     output = {
         "status": "plan", "iteration": iteration, "strategy": strategy,
         "spent": spent, "available": available, "reserved": reserved,
         "full": is_full, "probed": len(selected), "reason": reason,
         "certification": is_full,
+        "autopilot_preflight": autopilot_preflight,
     }
     if is_full:
         splits = {}
@@ -717,7 +723,8 @@ def main() -> int:
         )
         print(json.dumps(plan_output(n, strategy, selected, selection["full"],
                                      selection["reason"], spent, available,
-                                     reserved, history)))
+                                     reserved, history,
+                                     "passed" if autopilot else "not_applicable")))
         return 0
 
     if selection_existed and not pack_path.exists():
@@ -805,13 +812,22 @@ def main() -> int:
         reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "
                   "evaluation cannot certify. Run again for the full evaluation.")
     regressed = regressed_ids(grade["per_question"], previous)
+    dev_ids = {q["id"] for q in selected if q.get("split", "dev") == "dev"}
+    dev_regressed = [qid for qid in regressed if qid in dev_ids]
     fix_brief_path = None
     if not stop and autopilot:
-        fix_brief_path = iter_dir / "fix-brief.json"
-        fix_brief_path.write_text(json.dumps(
-            build_fix_brief(verdicts, selected, grade, regressed, authorization),
-            indent=2),
-            encoding="utf-8")
+        brief = build_fix_brief(verdicts, selected, grade, regressed, authorization)
+        if grade["full"] and not brief_is_actionable(brief):
+            stop = True
+            reason = ("NOTHING_ACTIONABLE: all remaining failures are holdout-only "
+                      "or mixed dev/holdout groups, which the fixer cannot see by "
+                      "design; the next step belongs to the human.")
+        else:
+            fix_brief_path = iter_dir / "fix-brief.json"
+            fix_brief_path.write_text(json.dumps(brief, indent=2), encoding="utf-8")
+    if not stop and not reason:
+        reason = (f"NEEDS_FIX: {len(dev_fails)} dev questions below 4; "
+                  f"{len(dev_regressed)} dev regressions.")
     output = {
         "status": "stopped" if stop else "needs_fix", "iteration": n,
         "reason": reason, "grade": grade["percent"],

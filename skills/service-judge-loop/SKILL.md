@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.7.1"
+  version: "1.7.2"
 ---
 
 # service-judge-loop
@@ -36,7 +36,8 @@ for the next fix. Manual mode waits for a human; autopilot writes a redacted
 `fix-brief.json` and follows the authorized cycle below.
 
 It stops on hard gate plus configured goals passed, regression (it notifies — never reverts),
-stagnation (<2pp improvement twice in a row), or the iteration limit. LLM
+stagnation (<2pp improvement twice in a row), the iteration limit, or an
+autopilot full run with nothing actionable left for the fixer. LLM
 usage consumes only the active harness subscription/session limits. No API
 key is read and no model API is called by the plugin.
 
@@ -251,6 +252,10 @@ Mixed dev/holdout groups and every holdout id/comment are absent at the source.
 It also carries `repo` and `allowed_actions`, copied from `authorization.json`:
 the fixer is the only participant that touches the machine, so the authorized
 scope has to travel with the work rather than only gate the startup.
+
+If a full run leaves none of those actionable inputs, the loop stops without
+writing a brief and returns the turn to the human — who is the only participant
+allowed to inspect holdout detail. An empty brief is not a handoff.
 
 The fixer consumes that JSON and nothing else: no `grade.json`,
 `verdicts.json`, `raw/`, or `history.json`. Pass the brief inline and provide no

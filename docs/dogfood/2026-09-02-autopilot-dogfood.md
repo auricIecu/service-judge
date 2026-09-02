@@ -96,16 +96,22 @@ conditions (regression, stagnation, limit, goals met) have no entry for
 "holdout detail never reaches the fixer" decision, and the cycle needs an
 explicit exit for it rather than a wasted iteration.
 
+**Closed in 1.7.2.**
+
 ### 5. The preflight succeeds silently — LOW
 
 `--plan` prints the same payload whether the preflight ran and passed or
 `autonomy.mode` was never set to autopilot. A gate whose entire purpose is to
 refuse to start should say when it decided to allow it.
 
+**Closed in 1.7.2.**
+
 ### 6. `"reason": ""` on a plain `needs_fix` — COSMETIC
 
 Pre-existing. The payload carries `dev_questions_below_4` and the brief path,
 so nothing is lost, but an empty string reads like the 1.5.0 bug.
+
+**Closed in 1.7.2.**
 
 ## Reproduce
 

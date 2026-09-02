@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.2 — 2026-09-02
+
+Three autopilot handoff gaps closed from the first real run
+(`docs/dogfood/2026-09-02-autopilot-dogfood.md`).
+
+- **No empty handoff:** a full autopilot run stops with
+  `NOTHING_ACTIONABLE` when only holdout or mixed-group failures remain; it
+  writes the grade and history, but no empty `fix-brief.json`.
+- **Visible preflight:** `--plan` reports `passed` for autopilot and
+  `not_applicable` for manual mode.
+- **Actionable status:** ordinary `needs_fix` results carry a stable, dev-only
+  reason with failure and regression counts.
+
 ## 1.7.1 — 2026-09-02
 
 Two data-boundary gaps the first real autopilot run exposed

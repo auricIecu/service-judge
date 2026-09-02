@@ -371,3 +371,39 @@ They passed first try — the collector was correct. Five mutations confirm they
 bite: dropping the linked-worktree clause, dropping the existing-branch check,
 letting a detached `HEAD` through, removing the `.service-judge` exclusion, and
 assuming any directory is a repo.
+
+
+## Act 3 — Build 1.7.2 (dogfood findings 4, 5, 6)
+
+Spec frozen by Claude at `/tmp/SPEC-1.7.2.md` (146 lines) from the dogfood
+report; the one design decision it locks — a full autopilot run with an empty
+brief stops and returns the turn to the human, rather than iterating or passing
+silently — was approved by the human before launch.
+
+### Round 1 — Codex build
+
+`gpt-5.6-sol` / `reasoning_effort=high`, `--yolo`, thread
+`01a063d3-e5d0-7201-97f6-75b71111c9e5`. 8 min, 175k tokens, 8 files, no fix
+rounds needed. Declared deviations: none — and none found.
+
+`brief_is_actionable` as a pure helper above the side-effect divider; the stop
+gated on `grade["full"]`, so a focused run still routes to `FOCUSED PASSED` and
+can reach the certifying full run; `autopilot_preflight` added to `plan_output`
+as a defaulted argument, keeping every existing call site; the `NEEDS_FIX`
+reason counted from dev-side failures and dev-side regressions only.
+
+### Claude's verdict
+
+Diff read in full, both proofs run by Claude, seven mutations killed: focused
+runs also stopping, `any`→`all` in the actionable check, the reason counting
+holdout regressions, the preflight going silent again, never stopping on an
+empty brief, detecting the empty brief without stopping, and the reason going
+back to empty.
+
+Two Claude-side changes. One real: the new stop sentence had been inserted
+mid-paragraph in the loop SKILL, between the brief's contents and "It also
+carries `repo`…", leaving that pronoun pointing at the loop instead of the
+brief; moved to its own paragraph. One self-inflicted: a `git checkout --` meant
+to undo a mutation ran from the wrong directory and reverted `loop.py` to
+`HEAD`; reconstructed verbatim from the reviewed diff, both proofs green again,
+and the mutation pass above ran against the reconstruction.

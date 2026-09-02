@@ -18,7 +18,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.7.1"
+  version: "1.7.2"
 ---
 
 # service-judge
