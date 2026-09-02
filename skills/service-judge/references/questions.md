@@ -74,7 +74,9 @@ Distribute the chosen N across:
 For every question that has a verifiable answer, extract the ground truth via
 a path that does NOT go through the evaluated LLM: direct SQL (read-only),
 REST endpoints that serve raw data, observability traces. Store it as
-`raw/anchors.snapshot.json`, keyed by canonical question id:
+`raw/anchors.snapshot.json` — in a loop run that is
+`.service-judge/run-<id>/raw/anchors.snapshot.json`, the only path the ignore
+rules protect — keyed by canonical question id:
 
 ```json
 {"Q01": {"anchor": "total_customers=24305", "query": "SELECT count(*) FROM customers"},

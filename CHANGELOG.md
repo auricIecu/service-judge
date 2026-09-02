@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.1 — 2026-09-02
+
+Two data-boundary gaps the first real autopilot run exposed
+(`docs/dogfood/2026-09-02-autopilot-dogfood.md`).
+
+- **The anchors snapshot has a home:** `loop.py` creates the run-level `raw/`
+  and both skills name `.service-judge/run-<id>/raw/anchors.snapshot.json`.
+  The obvious path was outside the ignore rules, so following the documented
+  flow committed the ground truth.
+- **Authorization reaches the actor:** `fix-brief.json` now carries `repo` and
+  `allowed_actions`. The flags gated startup and never reached the fixer, which
+  is the only participant that touches the machine; the brief was also the only
+  thing it received, and it named no repo.
+
 ## 1.7.0 — 2026-09-02
 
 Authorized autopilot for the improvement loop, with dev-only fix inputs and

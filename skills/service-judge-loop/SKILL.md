@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.7.0"
+  version: "1.7.1"
 ---
 
 # service-judge-loop
@@ -83,6 +83,11 @@ delete before retrying.
    service-judge skill before, Phase 3 offered to freeze one — reuse it.
    Otherwise generate one now following the service-judge skill's Phase 2–3,
    then freeze it and record its sha256.
+
+   Write the ground-truth snapshot to
+   `.service-judge/run-<id>/raw/anchors.snapshot.json` — `loop.py` creates that
+   directory. Anchors quote real customer values and `raw/` is the only path
+   the ignore rules protect; a snapshot anywhere else gets committed.
 
    Before continuing to autopilot, make the SERVICE repo—not merely the plugin
    checkout—clean for these artifacts. The golden set must already be tracked
@@ -189,7 +194,7 @@ delete before retrying.
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
    Point `probe_cmd` at staging, not production. `anchors` points to the
-   machine-readable ground-truth snapshot. Set `judge` to the active harness name
+   machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set `judge` to the active harness name
    (`codex` or `claude-code`); it is recorded as metadata.
    Schema v1 configs are rejected; start a new run instead of editing old
    `history.json`. For an approved autopilot run, change `mode` to `autopilot`
@@ -243,6 +248,9 @@ On `needs_fix`, `loop.py` writes `iter-NN/fix-brief.json` from validated
 verdicts. It contains only failing dev scores/comments, dev-only regressions,
 all-dev cross-analysis groups, aggregate holdout percent/gap, and gate results.
 Mixed dev/holdout groups and every holdout id/comment are absent at the source.
+It also carries `repo` and `allowed_actions`, copied from `authorization.json`:
+the fixer is the only participant that touches the machine, so the authorized
+scope has to travel with the work rather than only gate the startup.
 
 The fixer consumes that JSON and nothing else: no `grade.json`,
 `verdicts.json`, `raw/`, or `history.json`. Pass the brief inline and provide no
@@ -253,8 +261,9 @@ has shell access.
 For every `needs_fix` iteration:
 
 1. Group the brief by root cause and choose the best impact/effort fix.
-2. Apply only the authorized product-code change.
-3. Run authorized tests and restart local/staging only as approved.
+2. Apply only the authorized product-code change, inside the brief's `repo`.
+3. Take only actions whose flag in the brief's `allowed_actions` is `true`;
+   a `false` flag means the action is unauthorized, not merely optional.
 4. Stage explicit product paths. Verify the staged list contains nothing under
    `.service-judge/`, then commit exactly once with
    `service-judge autopilot iter-NN: <summary>`.

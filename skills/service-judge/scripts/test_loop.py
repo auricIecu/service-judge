@@ -352,7 +352,12 @@ brief_grade = compute_grade(
       "comment": "mixed finding must be hidden"}],
     GOALS, ANCHORS,
 )
-brief = loop.build_fix_brief(brief_verdicts, QS, brief_grade, ["Q1", "Q2"])
+BRIEF_AUTH = {"repo": "/srv/service",
+              "allowed_actions": {"edit_product_code": True, "run_tests": False,
+                                  "restart_local": False, "deploy_staging": False,
+                                  "commit": True}}
+brief = loop.build_fix_brief(brief_verdicts, QS, brief_grade, ["Q1", "Q2"],
+                             BRIEF_AUTH)
 brief_text = json.dumps(brief)
 check("fix brief includes only failing dev verdicts and dev regressions",
       brief["dev"] == [{"id": "Q1", "score": 3,
@@ -367,7 +372,7 @@ passing_brief = loop.build_fix_brief(
     passing_verdicts, passing_qs,
     compute_grade(passing_verdicts, passing_qs, "m", [], [], GOALS,
                   ANCHORS | {"Q3": {"anchor": "three"}}),
-    [])
+    [], BRIEF_AUTH)
 check("fix brief excludes dev questions that already pass",
       [row["id"] for row in passing_brief["dev"]] == ["Q1"]
       and "passing dev note" not in json.dumps(passing_brief))
@@ -379,6 +384,10 @@ check("fix brief excludes mixed dev-holdout cross-analysis",
 check("fix brief exposes only aggregate holdout and gate results",
       brief["holdout"] == {"percent": 40, "gap_pp": 20}
       and brief["gates"] == {"hard_gate": False, "goals_met": False})
+check("fix brief carries the authorized repo and action map to the fixer",
+      brief["repo"] == "/srv/service"
+      and brief["allowed_actions"] == BRIEF_AUTH["allowed_actions"]
+      and brief["allowed_actions"]["run_tests"] is False)
 
 ok, reason = loop.git_preflight_decision(True, False, True, True)
 check("dirty git tree blocks autopilot start", not ok and "dirty" in reason)
@@ -643,6 +652,13 @@ with tempfile.TemporaryDirectory() as d:
               rc == 0 and msg["status"] == "needs_fix"
               and saved["dev"][0]["id"] == "Q1"
               and "Q2" not in json.dumps(saved))
+        check("the written brief tells the fixer the repo and what it may do",
+              saved["repo"] == str(root)
+              and saved["allowed_actions"] == {
+                  key: value for key, value in autopilot_autonomy.items()
+                  if key != "mode"})
+        check("the run keeps a raw/ directory for the anchors snapshot",
+              (run / "raw").is_dir())
     finally:
         if old_collect is None:
             del loop.collect_git_preflight

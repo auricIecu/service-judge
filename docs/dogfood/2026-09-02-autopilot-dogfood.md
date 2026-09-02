@@ -56,7 +56,7 @@ the `config.json`/`probe_cmd` leak the grill caught in Tramo 1, and found the
 same way: by actually running the documented flow.
 
 Fix: create a run-level `raw/` in `loop.py` (or document that path explicitly)
-and say so in step 1.
+and say so in step 1. **Closed in 1.7.1.**
 
 ### 2. The authorized action flags never reach the actor — HIGH
 
@@ -72,13 +72,15 @@ authorization gates *startup* and never reaches *conduct*.
 
 Fix: the allowed-actions map belongs in the fixer's prompt, next to the brief.
 It is the one piece of non-brief context the contract should mandate.
+**Closed in 1.7.1**, inside the brief itself along with `repo` (finding 3).
 
 ### 3. The brief has no pointer to the product code — MEDIUM
 
 "The fixer consumes that JSON and nothing else" leaves it with question ids,
 scores and prose, and no repo, file or entrypoint. The repo path had to be
 passed out of band, from `authorization["repo"]`. The prose never says to do
-that, so the documented flow is not executable as written.
+that, so the documented flow is not executable as written. **Closed in 1.7.1**
+by the same brief field as finding 2.
 
 ### 4. `needs_fix` with an empty brief is a reachable dead end — MEDIUM-HIGH
 

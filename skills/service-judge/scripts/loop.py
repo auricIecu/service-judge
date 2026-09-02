@@ -370,8 +370,11 @@ def regressed_ids(per_question: list[dict], previous: dict[str, float]) -> list[
 
 
 def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
-                    regressed: list[str]) -> dict:
-    """Return the validated, dev-only input for an autopilot fixer."""
+                    regressed: list[str], authorization: dict) -> dict:
+    """Return the validated, dev-only input for an autopilot fixer.
+
+    Carries the authorized repo and action map: the fixer is the only
+    participant that touches the machine, and the brief is all it receives."""
     split_of = {q["id"]: q.get("split", "dev") for q in questions}
     valid = {row["id"]: row for row in grade["per_question"]}
     dev_ids = {qid for qid, split in split_of.items() if split == "dev"}
@@ -383,6 +386,8 @@ def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
         and valid[v["id"]]["score"] < 4
     ]
     return {
+        "repo": authorization["repo"],
+        "allowed_actions": authorization["allowed_actions"],
         "dev": dev,
         "regressed_ids": [qid for qid in regressed if qid in dev_ids],
         "cross_analysis": [
@@ -657,6 +662,9 @@ def main() -> int:
                               "manual_available": True}))
             return 2
 
+    # The run's ground-truth snapshot belongs here: raw/ is the only path
+    # .gitignore protects, and anchors quote real customer data.
+    (args.run / "raw").mkdir(parents=True, exist_ok=True)
     anchors, degradations = load_anchors(cfg)
     anchors_path = pathlib.Path(cfg["anchors"]) if cfg.get("anchors") and anchors else None
 
@@ -801,7 +809,8 @@ def main() -> int:
     if not stop and autopilot:
         fix_brief_path = iter_dir / "fix-brief.json"
         fix_brief_path.write_text(json.dumps(
-            build_fix_brief(verdicts, selected, grade, regressed), indent=2),
+            build_fix_brief(verdicts, selected, grade, regressed, authorization),
+            indent=2),
             encoding="utf-8")
     output = {
         "status": "stopped" if stop else "needs_fix", "iteration": n,
