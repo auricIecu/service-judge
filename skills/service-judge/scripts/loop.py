@@ -28,6 +28,7 @@ only LLM limits; this script never calls a model API.
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import shlex
 import subprocess
@@ -61,6 +62,9 @@ DIMENSION_VALUES = {
     "hallucination_free": {0, 100},
     "directness": {0, 100},
 }
+AUTONOMY_ACTIONS = (
+    "edit_product_code", "run_tests", "restart_local", "deploy_staging", "commit",
+)
 
 
 # ---------- pure logic (tested by test_loop.py) ----------
@@ -289,6 +293,24 @@ def validate_config(cfg: dict, n_golden: int) -> list[str]:
         value = goals.get("max_dev_holdout_gap_pp")
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             errors.append("goals.max_dev_holdout_gap_pp must be an integer >= 0")
+    autonomy = cfg.get("autonomy")
+    if autonomy is not None:
+        if not isinstance(autonomy, dict):
+            errors.append("autonomy must be an object")
+        else:
+            if (isinstance(autonomy.get("mode"), bool)
+                    or autonomy.get("mode") not in ("manual", "autopilot")):
+                errors.append("autonomy.mode must be manual or autopilot")
+            for key in AUTONOMY_ACTIONS:
+                if not isinstance(autonomy.get(key), bool):
+                    errors.append(f"autonomy.{key} must be a boolean")
+            if autonomy.get("mode") == "autopilot":
+                # ponytail: only the two actions the design cannot work without.
+                # Testing/restarting/staging stay optional — a service with no
+                # test suite must not have to lie in its audit record.
+                for key in ("edit_product_code", "commit"):
+                    if autonomy.get(key) is not True:
+                        errors.append(f"autonomy.{key} must be true for autopilot")
     strategy = cfg.get("probe_strategy", "full")
     if strategy not in ("full", "adaptive"):
         errors.append(f"unknown probe_strategy: {strategy}")
@@ -345,6 +367,48 @@ def regressed_ids(per_question: list[dict], previous: dict[str, float]) -> list[
     A question with no prior score cannot have regressed — it is a first read."""
     return [r["id"] for r in per_question
             if r["id"] in previous and previous[r["id"]] >= 4 and r["score"] < 4]
+
+
+def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
+                    regressed: list[str]) -> dict:
+    """Return the validated, dev-only input for an autopilot fixer."""
+    split_of = {q["id"]: q.get("split", "dev") for q in questions}
+    valid = {row["id"]: row for row in grade["per_question"]}
+    dev_ids = {qid for qid, split in split_of.items() if split == "dev"}
+    dev = [
+        {"id": v["id"], "score": valid[v["id"]]["score"],
+         "improvement_comment": v["improvement_comment"]}
+        for v in verdicts
+        if v.get("id") in valid and v["id"] in dev_ids
+        and valid[v["id"]]["score"] < 4
+    ]
+    return {
+        "dev": dev,
+        "regressed_ids": [qid for qid in regressed if qid in dev_ids],
+        "cross_analysis": [
+            {key: finding[key] for key in ("type", "ids", "comment")}
+            for finding in grade["cross_analysis"]
+            if all(qid in dev_ids for qid in finding["ids"])
+        ],
+        "holdout": {"percent": grade["holdout"]["percent"],
+                    "gap_pp": grade["gap_pp"]},
+        "gates": {"hard_gate": grade["hard_gate"],
+                  "goals_met": grade.get("goals", {}).get("met")},
+    }
+
+
+def git_preflight_decision(repo_present: bool, tree_clean: bool,
+                           filesystem_writable: bool,
+                           branch_creatable: bool) -> tuple[bool, str]:
+    if not repo_present:
+        return False, "authorized repo is not a git repository"
+    if not tree_clean:
+        return False, "authorized repo has a dirty product tree"
+    if not filesystem_writable:
+        return False, "authorized repo filesystem is not writable"
+    if not branch_creatable:
+        return False, "service-judge run branch cannot be created from this checkout"
+    return True, ""
 
 
 def select_questions(questions: list[dict], history: list[dict], cfg: dict,
@@ -416,6 +480,62 @@ def select_questions(questions: list[dict], history: list[dict], cfg: dict,
 
 
 # ---------- side effects ----------
+
+def load_authorization(path: pathlib.Path, autonomy: dict) -> tuple[dict | None, str]:
+    message = ("authorization.json is required as an audit record; it does not grant "
+               "authority. Obtain explicit authorization in this conversation or use "
+               "manual mode.")
+    try:
+        authorization = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None, message
+    allowed_actions = (authorization.get("allowed_actions")
+                       if isinstance(authorization, dict) else None)
+    if (not isinstance(authorization, dict)
+            or any(not isinstance(authorization.get(key), str)
+                   or not authorization[key]
+                   for key in ("timestamp", "scope", "repo", "environment",
+                               "approved_text"))
+            or not isinstance(allowed_actions, dict)
+            or any(not isinstance(allowed_actions.get(key), bool)
+                   for key in AUTONOMY_ACTIONS)
+            or allowed_actions != {
+                key: autonomy[key] for key in AUTONOMY_ACTIONS
+            }):
+        return None, "authorization.json is incomplete or does not match config autonomy"
+    return authorization, ""
+
+
+def collect_git_preflight(repo: pathlib.Path, branch: str) -> tuple[bool, bool, bool, bool]:
+    def git(*command):
+        return subprocess.run(["git", "-C", str(repo), *command],
+                              capture_output=True, text=True)
+
+    inside = git("rev-parse", "--is-inside-work-tree")
+    repo_present = inside.returncode == 0 and inside.stdout.strip() == "true"
+    if not repo_present:
+        return False, False, os.access(repo, os.W_OK), False
+    current = git("symbolic-ref", "--quiet", "--short", "HEAD")
+    current_branch = current.stdout.strip() if current.returncode == 0 else ""
+    status_args = ["status", "--porcelain", "--untracked-files=normal"]
+    if current_branch == branch:
+        status_args += ["--", ".", ":(exclude).service-judge"]
+    status = git(*status_args)
+    tree_clean = status.returncode == 0 and not status.stdout.strip()
+    filesystem_writable = os.access(repo, os.W_OK)
+    git_dir = git("rev-parse", "--path-format=absolute", "--git-dir")
+    git_common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    linked_worktree = (git_dir.returncode != 0 or git_common.returncode != 0
+                       or git_dir.stdout.strip() != git_common.stdout.strip())
+    refs_writable = (git_common.returncode == 0
+                     and os.access(git_common.stdout.strip(), os.W_OK))
+    valid = git("check-ref-format", "--branch", branch)
+    exists = git("show-ref", "--verify", "--quiet", f"refs/heads/{branch}")
+    branch_creatable = (not linked_worktree and refs_writable and valid.returncode == 0
+                        and (current_branch == branch
+                             or bool(current_branch) and exists.returncode != 0))
+    return repo_present, tree_clean, filesystem_writable, branch_creatable
+
 
 def count_probed_rows(run_dir: pathlib.Path) -> int:
     total = 0
@@ -519,6 +639,23 @@ def main() -> int:
     if errors:
         print(json.dumps({"status": "invalid_config", "errors": errors}))
         return 2
+
+    autonomy = cfg.get("autonomy") or {"mode": "manual"}
+    autopilot = autonomy["mode"] == "autopilot"
+    if autopilot:
+        authorization, auth_error = load_authorization(
+            args.run / "authorization.json", autonomy)
+        if auth_error:
+            print(json.dumps({"status": "autopilot_blocked", "reason": auth_error,
+                              "manual_available": True}))
+            return 2
+        branch = f"service-judge/{args.run.name}"
+        ok, reason = git_preflight_decision(
+            *collect_git_preflight(pathlib.Path(authorization["repo"]), branch))
+        if not ok:
+            print(json.dumps({"status": "autopilot_blocked", "reason": reason,
+                              "manual_available": True}))
+            return 2
 
     anchors, degradations = load_anchors(cfg)
     anchors_path = pathlib.Path(cfg["anchors"]) if cfg.get("anchors") and anchors else None
@@ -660,7 +797,13 @@ def main() -> int:
         reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "
                   "evaluation cannot certify. Run again for the full evaluation.")
     regressed = regressed_ids(grade["per_question"], previous)
-    print(json.dumps({
+    fix_brief_path = None
+    if not stop and autopilot:
+        fix_brief_path = iter_dir / "fix-brief.json"
+        fix_brief_path.write_text(json.dumps(
+            build_fix_brief(verdicts, selected, grade, regressed), indent=2),
+            encoding="utf-8")
+    output = {
         "status": "stopped" if stop else "needs_fix", "iteration": n,
         "reason": reason, "grade": grade["percent"],
         "dev": grade["dev"]["percent"],
@@ -669,7 +812,10 @@ def main() -> int:
         "hard_gate": grade["hard_gate"],
         "dev_questions_below_4": dev_fails,
         "regressed_ids": regressed,
-    }))
+    }
+    if fix_brief_path:
+        output["fix_brief"] = str(fix_brief_path.resolve())
+    print(json.dumps(output))
     return 0
 
 

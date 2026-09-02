@@ -18,7 +18,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.6.0"
+  version: "1.7.0"
 ---
 
 # service-judge
@@ -37,11 +37,13 @@ scorecard. Starting with discovery."
 
 1. Database access is **read-only** (`SELECT` only). Never DDL/DML.
 2. Never print credentials, connection strings, or API keys in chat or report.
-3. Never modify the user's product code — you propose improvements, you do not
-   patch. The ONLY files you write are eval artifacts (report, scorecard,
-   pack, anchors), and only in the location the user approved in Phase 1:
-   `eval-runs/` by default, `.context/` (or another gitignored path) if the
-   repo must stay clean.
+3. Never modify the user's product code, except while the sibling
+   `service-judge-loop` skill is in autopilot mode with explicit authorization
+   granted in the current conversation for that repo and scope. Outside that
+   single exception, propose improvements but do not patch. The ONLY files you
+   write are eval artifacts (report, scorecard, pack, anchors), and only in the
+   location the user approved in Phase 1: `eval-runs/` by default, `.context/`
+   (or another gitignored path) if the repo must stay clean.
 4. Tag every probe with an `eval-` prefixed session/request ID.
 5. Before probing a live service, confirm with the user WHICH environment
    (staging vs production) you are hitting.

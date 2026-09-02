@@ -7,3 +7,7 @@ eval-runs/
 # datos reales de clientes: packs y anchors viven siempre bajo raw/ (LOOP-DESIGN §7)
 .service-judge/**/raw/
 .service-judge/**/config.json
+# artefactos autopilot: brief/fix pueden citar datos; autorización registra alcance privado
+.service-judge/**/fix-brief.json
+.service-judge/**/fix.json
+.service-judge/**/authorization.json

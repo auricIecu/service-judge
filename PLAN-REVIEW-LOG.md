@@ -286,3 +286,88 @@ evaluated party decide which questions leave the denominator — and the suite n
 if anyone reintroduces it.
 
 **Rounds used:** 2 of `MAX_FIX_ROUNDS: 2` + 1 (build). Claude never had to take over.
+
+## Act 3 — Build, Tramo 2 (`1.7.0`, autopilot)
+
+Contract: items 9–14 + the 1.7.0 bump of item 23. Tramo 1 and Tramo 3 declared
+out of scope. Codex `gpt-5.6-sol` / `reasoning_effort=high`, `--yolo`, from the
+repo root. Base: `7963ea0` (`v1.6.0` + E2E), clean tree.
+
+### Round 0 — Codex asked instead of building
+
+`codex exec --yolo` returned exit 0 after ~1 minute having written nothing: it
+described its design and ended on *"Approve this implementation design?"*.
+`--yolo` bypasses the sandbox, not the model's habit of seeking sign-off.
+Resumed the same session (`01a061ff-c797-7292-93ac-c7197d35c3de`) approving the
+design and forbidding further approval requests. Cost: one wasted launch, no
+lost context.
+
+### Round 1 — Codex build
+
+~29 min. 9 files, +447/−30. Both proof suites green. Report claimed
+"Deviations: none".
+
+Verified by Claude, not taken on trust:
+
+- Both suites re-run locally: `test_loop: all assertions passed`,
+  `test_loop_e2e: all assertions passed`.
+- Full diff read.
+- Seven mutations of the new logic, all killed: mixed dev/holdout cross-analysis
+  into the brief; brief written in manual mode; preflight ignoring a dirty tree;
+  autopilot starting without `authorization.json`; holdout ids surviving in
+  `regressed_ids`; holdout `improvement_comment` reaching the brief.
+
+Good calls beyond the letter of the spec:
+
+- The preflight runs against `authorization["repo"]`, not the cwd — this closes
+  the plan's own open question about the service repo and the `.service-judge/`
+  repo not being the same one.
+- `git status` excludes `.service-judge` only once HEAD is already on the run
+  branch, so iteration 2+ is not blocked by the loop's own uncommitted
+  artifacts, while iteration 1 still requires a genuinely clean tree.
+
+### Claude's verdict — Round 1: three defects, fixed directly (not delegated)
+
+Under ~10 lines total, so Claude took over rather than spending a Codex round on
+trivia. Fix rounds used: 0 of 2.
+
+1. **`validate_config` forced `autonomy.run_tests: true` for autopilot** —
+   an unreported deviation that contradicts item 12 (actions are *authorized*,
+   not mandatory) and the SKILL prose Codex itself wrote ("run authorized tests
+   … only as approved"). A service with no test suite would have had to lie in
+   its audit record. `edit_product_code` and `commit` stay required: without
+   them autopilot is a no-op and item 11's commit-per-iteration cannot hold.
+   That narrowing is a declared deviation, not a silent one.
+2. **The `score < 4` filter in `build_fix_brief` was untested** — the fixture
+   has exactly one dev question and it fails, so a passing dev question's
+   `improvement_comment` could have entered the brief undetected. Code was
+   correct; the test now covers it.
+3. `10.` list continuation indented 3 spaces instead of 4 in the loop SKILL.
+
+Both added assertions verified by mutation: re-requiring `run_tests` and
+widening the score filter to `< 6` are each killed.
+
+### Observations logged, not fixed (pre-existing, outside items 9–14)
+
+- `loop.py`'s stdout `regressed_ids` is unfiltered and may name holdout ids.
+  Pre-existing since 1.5.0; the *brief* filters correctly, and the fixer never
+  reads stdout. The pilot does.
+- The autopilot preflight gates every invocation, including finalize. A tree
+  dirtied after probing therefore blocks grading an already-paid pack until it
+  is cleaned. Stricter than item 11's "before starting", and arguably right —
+  the answers stay in `pack.jsonl` and are not re-probed.
+
+### Claude's addition — real-git coverage for `collect_git_preflight`
+
+Both preflight tests mocked the collector away (`loop.collect_git_preflight =
+lambda ...`), and the pure decision test covers only the decision. The single
+piece of new code that touches the real world — linked-worktree detection,
+`check-ref-format`, `show-ref`, the `.service-judge` status exclusion — had never
+run against a git repo. Added seven assertions over real `tempfile` repos:
+non-repo, clean attached checkout, uncommitted product change, pre-existing run
+branch, loop artifacts on the run branch, detached `HEAD`, linked worktree.
+
+They passed first try — the collector was correct. Five mutations confirm they
+bite: dropping the linked-worktree clause, dropping the existing-branch check,
+letting a detached `HEAD` through, removing the `.service-judge` exclusion, and
+assuming any directory is a repo.

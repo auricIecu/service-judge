@@ -11,6 +11,9 @@ Fill `assets/report-template.md`. Rules:
 - **Goals:** include every configured goal with target, actual, and met/missed.
   A `null` actual is missed. Do not mention `soft_gate`; v2 grades use
   `hard_gate` plus `goals.met`.
+- **Autopilot generalization:** when `autonomy.mode` is `autopilot`, label
+  `gap_pp` **INDICATIVE**. State that a manual run is the clean generalization
+  measure because the autopilot fixer has a contract boundary, not a sandbox.
 - **Unanchored block:** report unanchored count, percent, and dimension
   percentages separately from certifiable accuracy.
 - **Question keys:** the scorecard `Q#` column uses the canonical `Q<NN>` ids

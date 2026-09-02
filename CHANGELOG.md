@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.0 — 2026-09-02
+
+Authorized autopilot for the improvement loop, with dev-only fix inputs and
+reversible product-code changes.
+
+- **Dev-only fix brief:** `loop.py` writes `fix-brief.json` from validated
+  verdicts and excludes holdout detail and mixed dev/holdout findings.
+- **Authorization boundary:** autopilot requires a current conversational
+  approval plus its audit record; manual remains the default.
+- **Reversible fixes:** a clean-repo preflight, dedicated run branch, one
+  product-code-only commit per iteration, and uncommitted `fix.json` records.
+- **Honest generalization:** autopilot reports `gap_pp` as indicative; a manual
+  run remains the clean generalization measurement.
+
 ## 1.6.0 — 2026-09-02
 
 Dimension-based loop grades, configurable goals, and corrected gate math.

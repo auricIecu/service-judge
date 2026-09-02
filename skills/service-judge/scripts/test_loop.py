@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import pathlib
+import subprocess
 import sys
 import tempfile
 
@@ -266,6 +267,42 @@ assert select_questions(AQ, [base], cfg, 4)[1:] == (True, "final_iteration")
 assert budget_plan(30, 30, {"answer_budget": 70}) == (30, 10, 30)
 assert not validate_config({"schema_version": 2, "goals": GOALS,
                             "probe_strategy": "full"}, 30)
+manual_autonomy = {
+    "mode": "manual", "edit_product_code": False, "run_tests": False,
+    "restart_local": False, "deploy_staging": False, "commit": False,
+}
+autopilot_autonomy = manual_autonomy | {
+    "mode": "autopilot", "edit_product_code": True, "run_tests": True,
+    "commit": True,
+}
+check("autonomy is optional and defaults to manual",
+      not validate_config({"schema_version": 2, "goals": GOALS,
+                           "probe_strategy": "full"}, 30))
+check("manual and autopilot autonomy blocks are valid",
+      not validate_config({"schema_version": 2, "goals": GOALS,
+                           "autonomy": manual_autonomy}, 30)
+      and not validate_config({"schema_version": 2, "goals": GOALS,
+                               "autonomy": autopilot_autonomy}, 30))
+check("unknown autonomy modes are rejected",
+      "autonomy.mode must be manual or autopilot"
+      in validate_config({"schema_version": 2, "goals": GOALS,
+                          "autonomy": manual_autonomy | {"mode": "automatic"}}, 30))
+check("boolean autonomy mode is rejected instead of treated as a string",
+      "autonomy.mode must be manual or autopilot"
+      in validate_config({"schema_version": 2, "goals": GOALS,
+                          "autonomy": manual_autonomy | {"mode": True}}, 30))
+check("autonomy actions must be booleans",
+      "autonomy.commit must be a boolean"
+      in validate_config({"schema_version": 2, "goals": GOALS,
+                          "autonomy": autopilot_autonomy | {"commit": 1}}, 30))
+for action in ("edit_product_code", "commit"):
+    check(f"autopilot requires {action}",
+          f"autonomy.{action} must be true for autopilot"
+          in validate_config({"schema_version": 2, "goals": GOALS,
+                              "autonomy": autopilot_autonomy | {action: False}}, 30))
+check("autopilot does not force optional actions on a service without them",
+      not validate_config({"schema_version": 2, "goals": GOALS,
+                           "autonomy": autopilot_autonomy | {"run_tests": False}}, 30))
 assert validate_config({"schema_version": 2}, 30)
 check("v2 config must freeze goals",
       "goals must be an object" in validate_config({"schema_version": 2}, 30))
@@ -297,6 +334,91 @@ assert should_stop([g(60), g(65, full=False)], 2)[1].startswith("MAX_ITERATIONS"
 check("grade without goals is invalid under schema v2",
       should_stop([{"percent": 100, "dev": {"percent": 100},
                     "hard_gate": True, "full": True}], 5)[1].startswith("INVALID_GRADE"))
+
+# autopilot: dev-only brief and preflight decisions
+brief_verdicts = [
+    v("Q1", 3, dimensions={"tool_choice": 1, "accuracy": 1,
+                            "hallucination_free": 1, "directness": 0})
+    | {"improvement_comment": "fix the dev answer"},
+    v("Q2", 2, dimensions={"tool_choice": 0, "accuracy": 1,
+                            "hallucination_free": 1, "directness": 0})
+    | {"improvement_comment": "secret holdout diagnosis"},
+]
+brief_grade = compute_grade(
+    brief_verdicts, QS, "m", [],
+    [{"type": "contradiction", "ids": ["Q1"], "comment": "dev-only finding",
+      "extra_prose": "must not reach the fixer"},
+     {"type": "contradiction", "ids": ["Q1", "Q2"],
+      "comment": "mixed finding must be hidden"}],
+    GOALS, ANCHORS,
+)
+brief = loop.build_fix_brief(brief_verdicts, QS, brief_grade, ["Q1", "Q2"])
+brief_text = json.dumps(brief)
+check("fix brief includes only failing dev verdicts and dev regressions",
+      brief["dev"] == [{"id": "Q1", "score": 3,
+                         "improvement_comment": "fix the dev answer"}]
+      and brief["regressed_ids"] == ["Q1"])
+check("fix brief excludes holdout ids and comments",
+      "Q2" not in brief_text and "secret holdout diagnosis" not in brief_text)
+passing_qs = QS + [{"id": "Q3", "mode": "sales", "split": "dev", "question": "?"}]
+passing_verdicts = brief_verdicts + [v("Q3", 5) | {
+    "improvement_comment": "passing dev note is not a fix input"}]
+passing_brief = loop.build_fix_brief(
+    passing_verdicts, passing_qs,
+    compute_grade(passing_verdicts, passing_qs, "m", [], [], GOALS,
+                  ANCHORS | {"Q3": {"anchor": "three"}}),
+    [])
+check("fix brief excludes dev questions that already pass",
+      [row["id"] for row in passing_brief["dev"]] == ["Q1"]
+      and "passing dev note" not in json.dumps(passing_brief))
+check("fix brief excludes mixed dev-holdout cross-analysis",
+      brief["cross_analysis"] == [
+          {"type": "contradiction", "ids": ["Q1"],
+           "comment": "dev-only finding"}]
+      and "must not reach the fixer" not in brief_text)
+check("fix brief exposes only aggregate holdout and gate results",
+      brief["holdout"] == {"percent": 40, "gap_pp": 20}
+      and brief["gates"] == {"hard_gate": False, "goals_met": False})
+
+ok, reason = loop.git_preflight_decision(True, False, True, True)
+check("dirty git tree blocks autopilot start", not ok and "dirty" in reason)
+
+
+# the git collector against real repos: every other preflight test mocks it away
+def git(root, *commands):
+    base = ["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t"]
+    for command in commands:
+        subprocess.run(base + list(command), check=True, capture_output=True)
+
+
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    run_branch = "service-judge/run-1"
+    check("a directory that is not a git repo fails the preflight",
+          loop.collect_git_preflight(root, run_branch)[0] is False)
+    git(root, ["init", "-b", "work"])
+    (root / "app.py").write_text("x = 1\n")
+    git(root, ["add", "app.py"], ["commit", "-m", "base"])
+    check("a clean attached checkout passes the preflight",
+          loop.collect_git_preflight(root, run_branch) == (True, True, True, True))
+    (root / "app.py").write_text("x = 2\n")
+    check("an uncommitted product change fails the preflight",
+          loop.collect_git_preflight(root, run_branch)[1] is False)
+    git(root, ["checkout", "--", "app.py"], ["branch", run_branch])
+    check("a run branch that already exists elsewhere cannot be created",
+          loop.collect_git_preflight(root, run_branch)[3] is False)
+    git(root, ["switch", run_branch])
+    (root / ".service-judge" / "run-1").mkdir(parents=True)
+    (root / ".service-judge" / "run-1" / "grade.json").write_text("{}")
+    check("loop artifacts on the run branch do not count as a dirty product tree",
+          loop.collect_git_preflight(root, run_branch) == (True, True, True, True))
+    git(root, ["switch", "--detach", "HEAD"])
+    check("a detached HEAD cannot create the run branch",
+          loop.collect_git_preflight(root, "service-judge/run-2")[3] is False)
+    git(root, ["switch", "work"],
+        ["worktree", "add", "-b", "spare", str(root / "linked")])
+    check("a linked worktree cannot host the run branch",
+          loop.collect_git_preflight(root / "linked", "service-judge/run-3")[3] is False)
 
 
 def write_json(path, data):
@@ -342,6 +464,18 @@ def run_main(run, *extra):
     finally:
         sys.argv = old_argv
     return rc, out.getvalue(), err.getvalue()
+
+
+def authorize(run, root):
+    write_json(run / "authorization.json", {
+        "timestamp": "2026-09-02T10:00:00Z",
+        "scope": "service product code",
+        "repo": str(root),
+        "environment": "staging",
+        "allowed_actions": {key: value for key, value in autopilot_autonomy.items()
+                            if key != "mode"},
+        "approved_text": "Approved autopilot for this run.",
+    })
 
 
 # filesystem state: selection is authoritative for each iteration
@@ -419,6 +553,9 @@ with tempfile.TemporaryDirectory() as d:
         check("focused grades do not evaluate goals", "goals" not in grade)
         check("passing focused run reports focused-passed reason",
               json.loads(out)["reason"].startswith("FOCUSED PASSED"))
+        check("manual mode does not write an automatic fix brief",
+              not (iter_dir / "fix-brief.json").exists()
+              and "fix_brief" not in json.loads(out))
         assert calls == []                       # no reselect/reprobe during finalize
     finally:
         loop.probe = old_probe
@@ -430,6 +567,31 @@ with tempfile.TemporaryDirectory() as d:
     msg = json.loads(out)
     check("config v1 is rejected cleanly",
           rc == 2 and msg["status"] == "unsupported_schema")
+
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    run = make_run(root, QS, {"autonomy": autopilot_autonomy})
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    check("autopilot refuses to start without authorization audit record",
+          rc == 2 and msg["status"] == "autopilot_blocked"
+          and not (run / "iter-01").exists())
+
+with tempfile.TemporaryDirectory() as d:
+    old_collect = loop.collect_git_preflight
+    loop.collect_git_preflight = lambda repo, branch: (True, False, True, True)
+    try:
+        root = pathlib.Path(d)
+        run = make_run(root, QS, {"autonomy": autopilot_autonomy})
+        authorize(run, root)
+        rc, out, _ = run_main(run)
+        msg = json.loads(out)
+        check("dirty preflight prevents any autopilot iteration",
+              rc == 2 and msg["status"] == "autopilot_blocked"
+              and msg["manual_available"] is True
+              and not (run / "iter-01").exists())
+    finally:
+        loop.collect_git_preflight = old_collect
 
 with tempfile.TemporaryDirectory() as d:
     calls = []
@@ -455,6 +617,37 @@ with tempfile.TemporaryDirectory() as d:
               rc == 0 and msg["status"] == "stopped" and calls == [])
     finally:
         loop.probe = old_probe
+
+with tempfile.TemporaryDirectory() as d:
+    old_collect = getattr(loop, "collect_git_preflight", None)
+    loop.collect_git_preflight = lambda repo, branch: (True, True, True, True)
+    try:
+        root = pathlib.Path(d)
+        run = make_run(root, QS, {"autonomy": autopilot_autonomy})
+        authorize(run, root)
+        iter_dir = run / "iter-01"
+        raw_dir = iter_dir / "raw"
+        raw_dir.mkdir(parents=True)
+        write_json(iter_dir / "selection.json",
+                   {"selected_ids": ["Q1", "Q2"], "full": True,
+                    "reason": "fixture", "strategy": "full"})
+        write_jsonl(raw_dir / "pack.jsonl",
+                    [{"id": q["id"], "mode": q["mode"], "question": q["question"],
+                      "answer": "fixture"} for q in QS])
+        write_json(iter_dir / "verdicts.json", brief_verdicts)
+        write_json(iter_dir / "cross-analysis.json", [])
+        rc, out, _ = run_main(run)
+        msg = json.loads(out)
+        saved = json.loads((iter_dir / "fix-brief.json").read_text())
+        check("autopilot needs_fix writes the redacted brief",
+              rc == 0 and msg["status"] == "needs_fix"
+              and saved["dev"][0]["id"] == "Q1"
+              and "Q2" not in json.dumps(saved))
+    finally:
+        if old_collect is None:
+            del loop.collect_git_preflight
+        else:
+            loop.collect_git_preflight = old_collect
 
 with tempfile.TemporaryDirectory() as d:
     root = pathlib.Path(d)
