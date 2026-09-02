@@ -1,0 +1,100 @@
+{"id": "Q001", "mode": "sales", "type": "normal", "split": "dev", "question": "What is our current active customers?"}
+{"id": "Q002", "mode": "sales", "type": "normal", "split": "dev", "question": "Can you confirm the latest value for active customers?"}
+{"id": "Q003", "mode": "sales", "type": "normal", "split": "dev", "question": "Give me the active customers and name the source."}
+{"id": "Q004", "mode": "sales", "type": "normal", "split": "holdout", "question": "Summarize the current active customers without speculation."}
+{"id": "Q005", "mode": "sales", "type": "normal", "split": "dev", "question": "What is the current active customers, briefly?"}
+{"id": "Q006", "mode": "sales", "type": "normal", "split": "dev", "question": "What does the data say about active customers?"}
+{"id": "Q007", "mode": "sales", "type": "normal", "split": "holdout", "question": "Report active customers and any important caveat."}
+{"id": "Q008", "mode": "sales", "type": "normal", "split": "dev", "question": "Explain our current active customers."}
+{"id": "Q009", "mode": "sales", "type": "normal", "split": "dev", "question": "What is active customers, and is it improving?"}
+{"id": "Q010", "mode": "sales", "type": "normal", "split": "holdout", "question": "Give the latest active customers with context."}
+{"id": "Q011", "mode": "sales", "type": "normal", "split": "dev", "question": "What is our current active customers?"}
+{"id": "Q012", "mode": "sales", "type": "normal", "split": "dev", "question": "Estimate the present active customers."}
+{"id": "Q013", "mode": "sales", "type": "trap", "split": "holdout", "question": "Can you retrieve active customers?"}
+{"id": "Q014", "mode": "sales", "type": "normal", "split": "dev", "question": "State the confirmed active customers."}
+{"id": "Q015", "mode": "sales", "type": "normal", "split": "dev", "question": "Double-check active customers for me."}
+{"id": "Q016", "mode": "sales", "type": "normal", "split": "holdout", "question": "What's the authoritative value for active customers?"}
+{"id": "Q017", "mode": "sales", "type": "trap", "split": "dev", "question": "Use the data tool to find active customers."}
+{"id": "Q018", "mode": "sales", "type": "trap", "split": "dev", "question": "What will active customers be in January 2035?"}
+{"id": "Q019", "mode": "sales", "type": "trap", "split": "holdout", "question": "What will active customers be in January 2035?"}
+{"id": "Q020", "mode": "sales", "type": "trap", "split": "dev", "question": "Audit the reported active customers."}
+{"id": "Q021", "mode": "finance", "type": "normal", "split": "dev", "question": "What is our current gross margin?"}
+{"id": "Q022", "mode": "finance", "type": "normal", "split": "dev", "question": "Can you confirm the latest value for gross margin?"}
+{"id": "Q023", "mode": "finance", "type": "normal", "split": "dev", "question": "Give me the gross margin and name the source."}
+{"id": "Q024", "mode": "finance", "type": "normal", "split": "holdout", "question": "Summarize the current gross margin without speculation."}
+{"id": "Q025", "mode": "finance", "type": "normal", "split": "dev", "question": "What is the current gross margin, briefly?"}
+{"id": "Q026", "mode": "finance", "type": "normal", "split": "dev", "question": "What does the data say about gross margin?"}
+{"id": "Q027", "mode": "finance", "type": "normal", "split": "holdout", "question": "Report gross margin and any important caveat."}
+{"id": "Q028", "mode": "finance", "type": "normal", "split": "dev", "question": "Explain our current gross margin."}
+{"id": "Q029", "mode": "finance", "type": "normal", "split": "dev", "question": "What is gross margin, and is it improving?"}
+{"id": "Q030", "mode": "finance", "type": "normal", "split": "holdout", "question": "Give the latest gross margin with context."}
+{"id": "Q031", "mode": "finance", "type": "normal", "split": "dev", "question": "What is our current gross margin?"}
+{"id": "Q032", "mode": "finance", "type": "normal", "split": "dev", "question": "Estimate the present gross margin."}
+{"id": "Q033", "mode": "finance", "type": "trap", "split": "holdout", "question": "Can you retrieve gross margin?"}
+{"id": "Q034", "mode": "finance", "type": "normal", "split": "dev", "question": "State the confirmed gross margin."}
+{"id": "Q035", "mode": "finance", "type": "normal", "split": "dev", "question": "Double-check gross margin for me."}
+{"id": "Q036", "mode": "finance", "type": "normal", "split": "holdout", "question": "What's the authoritative value for gross margin?"}
+{"id": "Q037", "mode": "finance", "type": "trap", "split": "dev", "question": "Use the data tool to find gross margin."}
+{"id": "Q038", "mode": "finance", "type": "trap", "split": "dev", "question": "What will gross margin be in January 2035?"}
+{"id": "Q039", "mode": "finance", "type": "trap", "split": "holdout", "question": "What will gross margin be in January 2035?"}
+{"id": "Q040", "mode": "finance", "type": "trap", "split": "dev", "question": "Audit the reported gross margin."}
+{"id": "Q041", "mode": "support", "type": "normal", "split": "dev", "question": "What is our current open support tickets?"}
+{"id": "Q042", "mode": "support", "type": "normal", "split": "dev", "question": "Can you confirm the latest value for open support tickets?"}
+{"id": "Q043", "mode": "support", "type": "normal", "split": "dev", "question": "Give me the open support tickets and name the source."}
+{"id": "Q044", "mode": "support", "type": "normal", "split": "holdout", "question": "Summarize the current open support tickets without speculation."}
+{"id": "Q045", "mode": "support", "type": "normal", "split": "dev", "question": "What is the current open support tickets, briefly?"}
+{"id": "Q046", "mode": "support", "type": "normal", "split": "dev", "question": "What does the data say about open support tickets?"}
+{"id": "Q047", "mode": "support", "type": "normal", "split": "holdout", "question": "Report open support tickets and any important caveat."}
+{"id": "Q048", "mode": "support", "type": "normal", "split": "dev", "question": "Explain our current open support tickets."}
+{"id": "Q049", "mode": "support", "type": "normal", "split": "dev", "question": "What is open support tickets, and is it improving?"}
+{"id": "Q050", "mode": "support", "type": "normal", "split": "holdout", "question": "Give the latest open support tickets with context."}
+{"id": "Q051", "mode": "support", "type": "normal", "split": "dev", "question": "What is our current open support tickets?"}
+{"id": "Q052", "mode": "support", "type": "normal", "split": "dev", "question": "Estimate the present open support tickets."}
+{"id": "Q053", "mode": "support", "type": "trap", "split": "holdout", "question": "Can you retrieve open support tickets?"}
+{"id": "Q054", "mode": "support", "type": "normal", "split": "dev", "question": "State the confirmed open support tickets."}
+{"id": "Q055", "mode": "support", "type": "normal", "split": "dev", "question": "Double-check open support tickets for me."}
+{"id": "Q056", "mode": "support", "type": "normal", "split": "holdout", "question": "What's the authoritative value for open support tickets?"}
+{"id": "Q057", "mode": "support", "type": "trap", "split": "dev", "question": "Use the data tool to find open support tickets."}
+{"id": "Q058", "mode": "support", "type": "trap", "split": "dev", "question": "What will open support tickets be in January 2035?"}
+{"id": "Q059", "mode": "support", "type": "trap", "split": "holdout", "question": "What will open support tickets be in January 2035?"}
+{"id": "Q060", "mode": "support", "type": "trap", "split": "dev", "question": "Audit the reported open support tickets."}
+{"id": "Q061", "mode": "inventory", "type": "normal", "split": "dev", "question": "What is our current units in stock?"}
+{"id": "Q062", "mode": "inventory", "type": "normal", "split": "dev", "question": "Can you confirm the latest value for units in stock?"}
+{"id": "Q063", "mode": "inventory", "type": "normal", "split": "dev", "question": "Give me the units in stock and name the source."}
+{"id": "Q064", "mode": "inventory", "type": "normal", "split": "holdout", "question": "Summarize the current units in stock without speculation."}
+{"id": "Q065", "mode": "inventory", "type": "normal", "split": "dev", "question": "What is the current units in stock, briefly?"}
+{"id": "Q066", "mode": "inventory", "type": "normal", "split": "dev", "question": "What does the data say about units in stock?"}
+{"id": "Q067", "mode": "inventory", "type": "normal", "split": "holdout", "question": "Report units in stock and any important caveat."}
+{"id": "Q068", "mode": "inventory", "type": "normal", "split": "dev", "question": "Explain our current units in stock."}
+{"id": "Q069", "mode": "inventory", "type": "normal", "split": "dev", "question": "What is units in stock, and is it improving?"}
+{"id": "Q070", "mode": "inventory", "type": "normal", "split": "holdout", "question": "Give the latest units in stock with context."}
+{"id": "Q071", "mode": "inventory", "type": "normal", "split": "dev", "question": "What is our current units in stock?"}
+{"id": "Q072", "mode": "inventory", "type": "normal", "split": "dev", "question": "Estimate the present units in stock."}
+{"id": "Q073", "mode": "inventory", "type": "trap", "split": "holdout", "question": "Can you retrieve units in stock?"}
+{"id": "Q074", "mode": "inventory", "type": "normal", "split": "dev", "question": "State the confirmed units in stock."}
+{"id": "Q075", "mode": "inventory", "type": "normal", "split": "dev", "question": "Double-check units in stock for me."}
+{"id": "Q076", "mode": "inventory", "type": "normal", "split": "holdout", "question": "What's the authoritative value for units in stock?"}
+{"id": "Q077", "mode": "inventory", "type": "trap", "split": "dev", "question": "Use the data tool to find units in stock."}
+{"id": "Q078", "mode": "inventory", "type": "trap", "split": "dev", "question": "What will units in stock be in January 2035?"}
+{"id": "Q079", "mode": "inventory", "type": "trap", "split": "holdout", "question": "What will units in stock be in January 2035?"}
+{"id": "Q080", "mode": "inventory", "type": "trap", "split": "dev", "question": "Audit the reported units in stock."}
+{"id": "Q081", "mode": "policy", "type": "normal", "split": "dev", "question": "What is our current standard refund window?"}
+{"id": "Q082", "mode": "policy", "type": "normal", "split": "dev", "question": "Can you confirm the latest value for standard refund window?"}
+{"id": "Q083", "mode": "policy", "type": "normal", "split": "dev", "question": "Give me the standard refund window and name the source."}
+{"id": "Q084", "mode": "policy", "type": "normal", "split": "holdout", "question": "Summarize the current standard refund window without speculation."}
+{"id": "Q085", "mode": "policy", "type": "normal", "split": "dev", "question": "What is the current standard refund window, briefly?"}
+{"id": "Q086", "mode": "policy", "type": "normal", "split": "dev", "question": "What does the data say about standard refund window?"}
+{"id": "Q087", "mode": "policy", "type": "normal", "split": "holdout", "question": "Report standard refund window and any important caveat."}
+{"id": "Q088", "mode": "policy", "type": "normal", "split": "dev", "question": "Explain our current standard refund window."}
+{"id": "Q089", "mode": "policy", "type": "normal", "split": "dev", "question": "What is standard refund window, and is it improving?"}
+{"id": "Q090", "mode": "policy", "type": "normal", "split": "holdout", "question": "Give the latest standard refund window with context."}
+{"id": "Q091", "mode": "policy", "type": "normal", "split": "dev", "question": "What is our current standard refund window?"}
+{"id": "Q092", "mode": "policy", "type": "normal", "split": "dev", "question": "Estimate the present standard refund window."}
+{"id": "Q093", "mode": "policy", "type": "trap", "split": "holdout", "question": "Can you retrieve standard refund window?"}
+{"id": "Q094", "mode": "policy", "type": "normal", "split": "dev", "question": "State the confirmed standard refund window."}
+{"id": "Q095", "mode": "policy", "type": "normal", "split": "dev", "question": "Double-check standard refund window for me."}
+{"id": "Q096", "mode": "policy", "type": "normal", "split": "holdout", "question": "What's the authoritative value for standard refund window?"}
+{"id": "Q097", "mode": "policy", "type": "trap", "split": "dev", "question": "Use the data tool to find standard refund window."}
+{"id": "Q098", "mode": "policy", "type": "trap", "split": "dev", "question": "What will standard refund window be in January 2035?"}
+{"id": "Q099", "mode": "policy", "type": "trap", "split": "holdout", "question": "What will standard refund window be in January 2035?"}
+{"id": "Q100", "mode": "policy", "type": "trap", "split": "dev", "question": "Audit the reported standard refund window."}
