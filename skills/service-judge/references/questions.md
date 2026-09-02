@@ -7,8 +7,9 @@ Present exactly this menu (translate to the user's language):
 | Tier | Questions | Use it for | Confidence (approx.) | Time |
 |---|---:|---|---|---|
 | Canary | 10–12 | Deciding whether this candidate is worth evaluating at all | none — it finds problems, it can't prove their absence | ~4 min |
-| Diagnostic | 30 | Measuring one domain, or one change you just made | ~82% (±18% sampling margin) | ~10 min |
-| Release | 50–100 | Confirming a candidate that already passed the lower tiers | 50: ~86% (±14%) · 100: ~90% (±10%) | ~18–35 min |
+| Diagnostic (recommended) | 30 | Measuring one domain, or one change you just made | ~82% (±18% sampling margin) | ~10 min |
+| Release | 50 | Confirming a candidate that already passed the lower tiers | ~86% (±14%) | ~18 min |
+| Expanded release | 100 | Confirming a high-stakes candidate | ~90% (±10%) | ~35 min |
 
 With this honest framing: "These are sampling approximations (margin ≈ 1/√n),
 not guarantees. 30 questions reliably surface systematic problems; rare
@@ -24,6 +25,15 @@ Pick the smallest tier that answers the question actually being asked:
 | Changed one mode's prompt or one tool | Canary, then diagnostic on that mode only |
 | Comparing two models / prompt rewrites | Diagnostic on each, same question set |
 | Shipping to production | Release, once, on the candidate that already won |
+
+For `service-judge-loop` adaptive runs, pair the tier with the matching focused
+iteration size:
+
+| Golden set | Focused max | Regression sample |
+|---:|---:|---:|
+| Canary 10–12 | 10 | 3 |
+| Diagnostic 30 | 15 | 4 |
+| Release 50–100 | 20 | 5 |
 
 **Repeats:** one run by default. Only repeat the same set 3× when the two
 candidates are within noise of each other, the service is visibly stochastic,
@@ -63,13 +73,19 @@ Distribute the chosen N across:
 
 For every question that has a verifiable answer, extract the ground truth via
 a path that does NOT go through the evaluated LLM: direct SQL (read-only),
-REST endpoints that serve raw data, observability traces. Store as
-`anchors.md`: one line per question id — `Q07: total_customers=24305
-(SELECT count(*) FROM customers)` — value AND provenance.
+REST endpoints that serve raw data, observability traces. Store it as
+`raw/anchors.snapshot.json`, keyed by canonical question id:
 
-Questions with no extractable anchor are marked `anchor: none` and will only
-be judged on behavior. If more than half the set has no anchor, warn the user
-before probing: the grade will be mostly behavioral.
+```json
+{"Q01": {"anchor": "total_customers=24305", "query": "SELECT count(*) FROM customers"},
+ "Q02": {"anchor": null, "note": "date beyond available data - trap"}}
+```
+
+A question is anchored only when its key exists and `anchor` is not `null`.
+Questions with no extractable anchor use `"anchor": null` and can only certify
+behavior dimensions plus plausibility. If more than half the set has no anchor,
+warn the user before probing: exact accuracy certification will be limited by
+anchor coverage.
 
 ## Question generation (cheap model)
 
@@ -118,7 +134,7 @@ user — hiding it is the loop's job, not this one.
   question (tool loops make it >1) — it is what makes an eval expensive, so
   capture it whenever it's available and say so in the report when it isn't.
 - The pack `id` IS the canonical question key `Q<NN>` (e.g. `Q07`): the same
-  key used in `anchors.md`, in the scorecard's `#` column, and as the suffix
+  key used in `anchors.snapshot.json`, in the scorecard's `#` column, and as the suffix
   of the probe session ID (`eval-<date>-Q<NN>`).
 - On transport errors: retry once, then record the error as the answer
   (a service that 503s IS a finding, not a skipped question).

@@ -16,6 +16,32 @@
 |---|---|---|
 | <mode> | <pts>/<max> | <pct>% |
 
+## Dimension gates
+
+| Dimension | Scope | Result | Goal |
+|---|---|---:|---:|
+| Accuracy | Anchored only | <accuracy_pct>% | <min_accuracy_pct>% |
+| Tool choice | All questions | <tool_choice_pct>% | <min_tool_choice_pct>% |
+| Hallucination-free | All questions | <hallucination_free_pct>% | <min_hallucination_free_pct>% |
+| Directness | All questions | <directness_pct>% | <min_directness_pct>% |
+| Pass rate | Anchored only | <pass_rate_pct>% | <min_pass_rate_pct>% |
+| Holdout score | Anchored only | <holdout_score_pct>% | <min_holdout_score_pct>% |
+| Dev/holdout gap | Anchored only | <gap_pp> pp | <= <max_dev_holdout_gap_pp> pp |
+| Anchor coverage | All questions | <anchor_coverage_pct>% | <min_anchor_coverage_pct>% |
+
+**Goals:** <met|missed> · **Hard gate:** <passed|failed>
+
+## Unanchored questions
+
+<K>/<N> (<percent>%) questions had no usable anchor.
+
+| Dimension | Unanchored result |
+|---|---:|
+| Tool choice | <pct>% |
+| Accuracy/plausibility | <pct>% |
+| Hallucination-free | <pct>% |
+| Directness | <pct>% |
+
 ## Cost of this run
 
 | | |

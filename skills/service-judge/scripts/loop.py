@@ -11,11 +11,13 @@ Usage:
 
 Expects <run>/config.json:
   {
+    "schema_version": 2,
     "probe_cmd": "curl -s ... {question} ... {qid} ...",   # placeholders; stdout = answer
     "golden_set": ".service-judge/questions.golden.jsonl",
     "golden_sha256": "<sha256 of that file>",
     "anchors": "<run>/raw/anchors.snapshot.json",          # optional; absent = unanchored
     "judge": "codex",                                      # metadata only
+    "goals": {"profile": "recommended-production-v1", ...},
     "max_iterations": 5
   }
 
@@ -37,13 +39,96 @@ CROSS_TYPES = {
     "contradiction", "broken_tool", "hallucinated_narrative",
     "false_guardrail", "arithmetic_inconsistency",
 }
+DEFAULT_GOALS = {
+    "profile": "recommended-production-v1",
+    "min_tool_choice_pct": 95,
+    "min_accuracy_pct": 95,
+    "min_hallucination_free_pct": 100,
+    "min_directness_pct": 95,
+    "min_pass_rate_pct": 95,
+    "min_holdout_score_pct": 95,
+    "max_dev_holdout_gap_pp": 5,
+    "min_anchor_coverage_pct": 50,
+}
+MIN_GOAL_KEYS = (
+    "min_tool_choice_pct", "min_accuracy_pct", "min_hallucination_free_pct",
+    "min_directness_pct", "min_pass_rate_pct", "min_holdout_score_pct",
+    "min_anchor_coverage_pct",
+)
+DIMENSION_VALUES = {
+    "tool_choice": {0, 50, 100},
+    "accuracy": {0, 100, 200},
+    "hallucination_free": {0, 100},
+    "directness": {0, 100},
+}
 
 
 # ---------- pure logic (tested by test_loop.py) ----------
 
+def hundredths(value) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(round(value * 100))
+
+
+def verdict_for(score: int) -> str:
+    if score >= 400:
+        return "pass"
+    if score >= 250:
+        return "warn"
+    return "fail"
+
+
+def is_anchored(anchors: dict | None, qid: str) -> bool:
+    row = anchors.get(qid) if isinstance(anchors, dict) else None
+    return isinstance(row, dict) and row.get("anchor") is not None
+
+
+def percent(points: float, max_points: float) -> int | None:
+    return round(100 * points / max_points) if max_points else None
+
+
+def goals_with_defaults(goals: dict | None) -> dict:
+    return DEFAULT_GOALS | (goals or {})
+
+
+def goal_result(metric: str, target, actual, met: bool) -> dict:
+    return {"metric": metric, "target": target, "actual": actual, "met": met}
+
+
+def evaluate_goals(metrics: dict, goals: dict | None,
+                   anchored_dev: int, anchored_holdout: int,
+                   anchored_total: int) -> dict:
+    goals = goals_with_defaults(goals)
+    detail = []
+    for key, metric in (
+        ("min_tool_choice_pct", "tool_choice_pct"),
+        ("min_accuracy_pct", "accuracy_pct"),
+        ("min_hallucination_free_pct", "hallucination_free_pct"),
+        ("min_directness_pct", "directness_pct"),
+        ("min_pass_rate_pct", "pass_rate_pct"),
+        ("min_holdout_score_pct", "holdout_score_pct"),
+        ("min_anchor_coverage_pct", "anchor_coverage_pct"),
+    ):
+        actual = metrics.get(metric)
+        detail.append(goal_result(metric, goals[key], actual,
+                                  actual is not None and actual >= goals[key]))
+    gap = metrics.get("gap_pp")
+    detail.append(goal_result("dev_holdout_gap_pp", goals["max_dev_holdout_gap_pp"],
+                              gap, gap is not None and gap <= goals["max_dev_holdout_gap_pp"]))
+    detail.append(goal_result("anchored_dev_questions", 1, anchored_dev, anchored_dev >= 1))
+    detail.append(goal_result("anchored_holdout_questions", 1, anchored_holdout,
+                              anchored_holdout >= 1))
+    detail.append(goal_result("certifiable_accuracy", "at least one anchor",
+                              anchored_total, anchored_total >= 1))
+    return {"met": all(row["met"] for row in detail), "detail": detail}
+
+
 def compute_grade(verdicts: list[dict], questions: list[dict], judge: str,
                   degradations: list[str],
-                  cross_analysis: list[dict] | None = None) -> dict:
+                  cross_analysis: list[dict] | None = None,
+                  goals: dict | None = None,
+                  anchors: dict | None = None) -> dict:
     """grade.json: per-question scores plus dev/holdout aggregates and gates."""
     split_of = {q["id"]: q.get("split", "dev") for q in questions}
     per_question, errors, seen = [], [], set()
@@ -53,17 +138,26 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: str,
             errors.append(v)
             continue
         seen.add(qid)
-        score = v.get("score")
-        if ("score" not in v
-                or isinstance(score, bool)
-                or not isinstance(score, (int, float))
-                or score < 0 or score > 5
+        score = hundredths(v.get("score"))
+        dimensions = v.get("dimensions")
+        unanchored = not is_anchored(anchors, qid)
+        if (score is None or score < 0 or score > 500
+                or not isinstance(dimensions, dict)
+                or set(dimensions) != set(DIMENSION_VALUES)
+                or any(hundredths(dimensions[key]) not in allowed
+                       for key, allowed in DIMENSION_VALUES.items())
+                or sum(hundredths(dimensions[key]) for key in DIMENSION_VALUES) != score
+                or not isinstance(v.get("unanchored"), bool)
+                or v["unanchored"] != unanchored
+                or unanchored and hundredths(dimensions["accuracy"]) > 100
+                or not isinstance(v.get("improvement_comment"), str)
                 or any(not isinstance(v.get(flag), bool) for flag in CRITICAL_FLAGS)):
-            errors.append(v)
+            errors.append({"id": qid, "error": "invalid_verdict"})
             continue
         per_question.append({"id": qid, "split": split_of[qid],
-                             "score": v["score"], "verdict": v["verdict"],
-                             "unanchored": v.get("unanchored", False),
+                             "score": score / 100, "verdict": verdict_for(score),
+                             "unanchored": unanchored,
+                             "dimensions": dimensions,
                              **{flag: v[flag] for flag in CRITICAL_FLAGS}})
     errors.extend({"id": qid, "error": "missing_verdict"}
                   for qid in split_of.keys() - seen)
@@ -80,28 +174,66 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: str,
                 cross_errors.append(finding)
             else:
                 cross_findings.append(finding)
-    def agg(rows):
+    def agg(rows, null_empty=False):
         maxpts = 5 * len(rows)
         total = sum(r["score"] for r in rows)
         return {"total": total, "max": maxpts,
-                "percent": round(100 * total / maxpts) if maxpts else 0}
-    dev = [r for r in per_question if r["split"] == "dev"]
-    holdout = [r for r in per_question if r["split"] == "holdout"]
+                "percent": percent(total, maxpts) if maxpts else (None if null_empty else 0)}
+    anchored = [r for r in per_question if not r["unanchored"]]
+    unanchored_rows = [r for r in per_question if r["unanchored"]]
+    dev = [r for r in anchored if r["split"] == "dev"]
+    holdout = [r for r in anchored if r["split"] == "holdout"]
+    metrics = {
+        "accuracy_pct": percent(sum(r["dimensions"]["accuracy"] for r in anchored),
+                                2 * len(anchored)),
+        "tool_choice_pct": percent(sum(r["dimensions"]["tool_choice"] for r in per_question),
+                                   len(per_question)),
+        "hallucination_free_pct": percent(
+            sum(r["dimensions"]["hallucination_free"] for r in per_question),
+            len(per_question)),
+        "directness_pct": percent(sum(r["dimensions"]["directness"] for r in per_question),
+                                  len(per_question)),
+        "pass_rate_pct": percent(sum(1 for r in anchored if r["score"] >= 4),
+                                 len(anchored)),
+        "anchor_coverage_pct": percent(len(anchored), len(questions)) or 0,
+    }
     hard_failures = [
         {"id": r["id"], "flags": [flag for flag in CRITICAL_FLAGS if r[flag]]}
         for r in per_question if any(r[flag] for flag in CRITICAL_FLAGS)
     ]
+    dev_agg = agg(dev, True)
+    holdout_agg = agg(holdout, True)
+    gap = (dev_agg["percent"] - holdout_agg["percent"]
+           if dev_agg["percent"] is not None and holdout_agg["percent"] is not None
+           else None)
+    metrics["holdout_score_pct"] = holdout_agg["percent"]
+    metrics["gap_pp"] = gap
     grade = agg(per_question) | {
         "judge": judge, "per_question": per_question,
-        "dev": agg(dev), "holdout": agg(holdout),
-        "gap_pp": agg(dev)["percent"] - agg(holdout)["percent"] if holdout else None,
+        "dev": dev_agg, "holdout": holdout_agg,
+        "gap_pp": gap,
+        **metrics,
+        "unanchored_block": {
+            "count": len(unanchored_rows),
+            "percent": percent(len(unanchored_rows), len(questions)) or 0,
+            "dimensions_pct": {
+                "tool_choice": percent(sum(r["dimensions"]["tool_choice"]
+                                           for r in unanchored_rows), len(unanchored_rows)),
+                "accuracy": percent(sum(r["dimensions"]["accuracy"]
+                                        for r in unanchored_rows), len(unanchored_rows)),
+                "hallucination_free": percent(sum(r["dimensions"]["hallucination_free"]
+                                                  for r in unanchored_rows),
+                                              len(unanchored_rows)),
+                "directness": percent(sum(r["dimensions"]["directness"]
+                                          for r in unanchored_rows), len(unanchored_rows)),
+            },
+        },
         "hard_failures": hard_failures,
         "cross_analysis": cross_findings,
         "hard_gate": (all(r["score"] > 1 for r in per_question)
                       and not hard_failures and not cross_findings
                       and not errors and not cross_errors),
-        "soft_gate": (sum(1 for r in per_question if r["score"] >= 4)
-                      >= 0.95 * len(per_question)) if per_question else False,
+        "goals": evaluate_goals(metrics, goals, len(dev), len(holdout), len(anchored)),
         "degradations": (
             degradations
             + [f"{len(errors)} scoring errors"] * bool(errors)
@@ -119,16 +251,23 @@ def should_stop(history: list[dict], max_iterations: int) -> tuple[bool, str]:
         if len(history) >= max_iterations:
             return True, f"MAX_ITERATIONS: {max_iterations} reached"
         return False, ""
-    if last["hard_gate"] and last["soft_gate"]:
-        return True, "PASSED: hard and soft gates met"
-    if len(fulls) >= 2 and last["dev"]["percent"] < fulls[-2]["dev"]["percent"]:
+    if "goals" not in last:
+        return True, "INVALID_GRADE: missing goals"
+    if last["hard_gate"] and last["goals"]["met"]:
+        return True, "PASSED: hard gate and goals met"
+    if (len(fulls) >= 2
+            and isinstance(last["dev"]["percent"], (int, float))
+            and isinstance(fulls[-2]["dev"]["percent"], (int, float))
+            and last["dev"]["percent"] < fulls[-2]["dev"]["percent"]):
         return True, ("REGRESSION: dev score dropped "
                       f"{fulls[-2]['dev']['percent']} -> {last['dev']['percent']} "
                       "after the last fix. Reverting is your call; the loop only measures.")
     if len(fulls) >= 3:
-        deltas = [fulls[i]["dev"]["percent"] - fulls[i - 1]["dev"]["percent"]
-                  for i in (-2, -1)]
-        if all(d < 2 for d in deltas):
+        points = [fulls[i]["dev"]["percent"] for i in (-3, -2, -1)]
+        deltas = [points[i] - points[i - 1] for i in (1, 2)
+                  if isinstance(points[i], (int, float))
+                  and isinstance(points[i - 1], (int, float))]
+        if len(deltas) == 2 and all(d < 2 for d in deltas):
             return True, f"STAGNATION: <2pp improvement in 2 consecutive iterations {deltas}"
     if len(history) >= max_iterations:
         return True, f"MAX_ITERATIONS: {max_iterations} reached"
@@ -137,6 +276,19 @@ def should_stop(history: list[dict], max_iterations: int) -> tuple[bool, str]:
 
 def validate_config(cfg: dict, n_golden: int) -> list[str]:
     errors = []
+    goals = cfg.get("goals")
+    if not isinstance(goals, dict):
+        errors.append("goals must be an object")
+    else:
+        if "profile" in goals and not isinstance(goals["profile"], str):
+            errors.append("goals.profile must be a string")
+        for key in MIN_GOAL_KEYS:
+            value = goals.get(key)
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+                errors.append(f"goals.{key} must be an integer 0-100")
+        value = goals.get("max_dev_holdout_gap_pp")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            errors.append("goals.max_dev_holdout_gap_pp must be an integer >= 0")
     strategy = cfg.get("probe_strategy", "full")
     if strategy not in ("full", "adaptive"):
         errors.append(f"unknown probe_strategy: {strategy}")
@@ -155,6 +307,23 @@ def validate_config(cfg: dict, n_golden: int) -> list[str]:
     elif budget < 2 * n_golden:
         errors.append("answer_budget must fit the baseline and final full run")
     return errors
+
+
+def load_anchors(cfg: dict) -> tuple[dict | None, list[str]]:
+    anchors_path = cfg.get("anchors")
+    if not anchors_path:
+        return None, ["no ground truth: anchors file absent"]
+    path = pathlib.Path(anchors_path)
+    if not path.exists():
+        return None, ["no ground truth: anchors file absent"]
+    try:
+        anchors = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return None, [f"no ground truth: anchors snapshot malformed ({type(exc).__name__})"]
+    if not isinstance(anchors, dict) or any(not isinstance(row, dict)
+                                           for row in anchors.values()):
+        return None, ["no ground truth: anchors snapshot malformed"]
+    return anchors, []
 
 
 def budget_plan(probed_count: int, n_golden: int, cfg: dict) -> tuple[int, int, int]:
@@ -330,6 +499,14 @@ def main() -> int:
     ap.add_argument("--plan", action="store_true", help="print the next probe plan")
     args = ap.parse_args()
     cfg = json.loads((args.run / "config.json").read_text())
+    if cfg.get("schema_version") != 2:
+        print(json.dumps({
+            "status": "unsupported_schema",
+            "expected": 2,
+            "actual": cfg.get("schema_version"),
+            "message": "Start a new service-judge-loop run with schema_version 2.",
+        }))
+        return 2
 
     golden_path = pathlib.Path(cfg["golden_set"])
     golden_bytes = golden_path.read_bytes()
@@ -343,13 +520,8 @@ def main() -> int:
         print(json.dumps({"status": "invalid_config", "errors": errors}))
         return 2
 
-    degradations = []
-    anchors_path = cfg.get("anchors")
-    if anchors_path and pathlib.Path(anchors_path).exists():
-        anchors_path = pathlib.Path(anchors_path)
-    else:
-        anchors_path = None
-        degradations.append("no ground truth: anchors file absent")
+    anchors, degradations = load_anchors(cfg)
+    anchors_path = pathlib.Path(cfg["anchors"]) if cfg.get("anchors") and anchors else None
 
     history_path = args.run / "history.json"
     history = json.loads(history_path.read_text()) if history_path.exists() else []
@@ -357,6 +529,9 @@ def main() -> int:
     if history:
         stop, reason = should_stop(history, max_iter)
         if stop:
+            if reason.startswith("INVALID_GRADE"):
+                print(json.dumps({"status": "invalid_state", "error": reason}))
+                return 2
             last = history[-1]
             print(json.dumps({"status": "stopped", "iterations": len(history),
                               "reason": reason, "final": last["percent"],
@@ -462,7 +637,7 @@ def main() -> int:
 
     grade = compute_grade(
         verdicts, selected, cfg.get("judge", "current harness"),
-        degradations, cross_analysis,
+        degradations, cross_analysis, cfg.get("goals"), anchors,
     )
     validation_errors = [d for d in grade["degradations"] if d.endswith(" errors")]
     if validation_errors:
@@ -472,16 +647,18 @@ def main() -> int:
 
     grade["full"] = selection["full"]
     grade["probed"] = len(selection["selected_ids"])
+    if not grade["full"]:
+        grade.pop("goals", None)
     (iter_dir / "grade.json").write_text(json.dumps(grade, indent=2))
     previous = latest_score_map(history)
     history.append(grade)
     history_path.write_text(json.dumps(history, indent=2))
-    stop, reason = should_stop(history, max_iter)
-    if not stop and not grade["full"] and grade["hard_gate"] and grade["soft_gate"]:
-        reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "
-                  "evaluation cannot certify. Run again for the full evaluation.")
     dev_fails = [r["id"] for r in grade["per_question"]
                  if r["split"] == "dev" and r["score"] < 4]
+    stop, reason = should_stop(history, max_iter)
+    if not stop and not grade["full"] and grade["hard_gate"] and not dev_fails:
+        reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "
+                  "evaluation cannot certify. Run again for the full evaluation.")
     regressed = regressed_ids(grade["per_question"], previous)
     print(json.dumps({
         "status": "stopped" if stop else "needs_fix", "iteration": n,

@@ -18,7 +18,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # service-judge
@@ -64,7 +64,7 @@ Determine which tier you are in and adapt:
 |---|---|---|
 | Filesystem/shell | Can you run shell commands and read local files? | Use GitHub connector / ask user to paste key files |
 | Network to service | Can you curl the service base URL? | Switch to "bring your outputs" mode (Phase 3 alt) |
-| Database | Phase 1 cascade | Behavior-only eval, reduced confidence (flag it) |
+| Database | Phase 1 cascade | Behavior/plausibility only; the loop cannot certify accuracy without anchors |
 | Subagents with model override | Claude Code only | Do everything in-session; ask user to switch models at the judge step |
 
 Never fail hard because a capability is missing. Degrade per the table and
@@ -87,7 +87,7 @@ REUSE it — skips generation, keeps scores comparable across runs.
 
 Otherwise present the tier menu (exact table and confidence wording in
 `references/questions.md` §Sizing) and ask the user to pick **canary (10–12)
-/ diagnostic (30) / release (50–100)**. Recommend the smallest tier that
+/ diagnostic (30, recommended) / release (50) / expanded release (100)**. Recommend the smallest tier that
 answers their actual question; if they are evaluating one specific change,
 say so and weight the set toward the affected modes.
 **Gate:** user picked a tier, or chose to reuse the golden set or a pack.
@@ -113,7 +113,8 @@ finding and the reason. If the tier was `canary`, stop here regardless.
 (a) an answer pack exists (JSONL, one record per question) — from live probing,
 or from user-provided outputs normalized into the same format if the service
 is unreachable; AND
-(b) anchors were extracted, OR explicitly marked absent — which flags
+(b) `raw/anchors.snapshot.json` exists, with `anchor: null` for questions
+without ground truth, OR anchors are explicitly absent — which flags
 "reduced confidence: no ground truth" and carries into Phases 4–5.
 Anchor extraction is NEVER skipped just because the service was unreachable:
 if a database is reachable, extract anchors regardless of how the pack was
@@ -134,7 +135,8 @@ you have. Always record which judge was used.
 If the strongest reachable judge is WEAKER than the model that generated the
 answers, warn the user and request an upgrade before judging; if they decline,
 record "judge < judged" as a confidence caveat in the report.
-**Gate:** every question has a verdict (score 0–5 + improvement comment).
+**Gate:** every question has a verdict object with dimensions, score 0–5,
+`unanchored`, improvement comment, and the three critical booleans.
 
 ## Phase 5 — Report & exit
 

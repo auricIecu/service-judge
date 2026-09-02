@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.0 — 2026-09-02
+
+Dimension-based loop grades, configurable goals, and corrected gate math.
+
+- **Breaking:** schema v1 loop configs are rejected; start a new v2 run.
+- **Breaking:** existing markdown anchor snapshots are invalidated; anchors
+  now live as `raw/anchors.snapshot.json`.
+- **Loop grade v2:** verdicts carry dimensions, while `verdict` and
+  `unanchored` are derived by `loop.py`.
+- **Goals:** `grade.json` records configured goals and whether each was met;
+  `soft_gate` is removed.
+- **Gate math:** certifiable accuracy metrics use anchored questions only;
+  behavior dimensions and hard gates use all questions.
+
 ## 1.5.0 — 2026-08-27
 
 Adaptive probing for the improvement loop. The default loop behavior is still

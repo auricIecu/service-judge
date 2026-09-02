@@ -20,71 +20,197 @@ from loop import (
 
 QS = [{"id": "Q1", "mode": "sales", "split": "dev", "question": "?"},
       {"id": "Q2", "mode": "sales", "split": "holdout", "question": "?"}]
+ANCHORS = {"Q1": {"anchor": "one"}, "Q2": {"anchor": "two"}}
+GOALS = {"profile": "test", "min_tool_choice_pct": 95, "min_accuracy_pct": 95,
+         "min_hallucination_free_pct": 100, "min_directness_pct": 95,
+         "min_pass_rate_pct": 95, "min_holdout_score_pct": 95,
+         "max_dev_holdout_gap_pp": 5, "min_anchor_coverage_pct": 50}
 
 
-def g(dev_pct, hard=False, soft=False, full=True):
+def check(_name, condition):
+    assert condition
+
+
+def g(dev_pct, hard=False, goals_met=False, full=True):
     return {"percent": dev_pct, "dev": {"percent": dev_pct},
-            "hard_gate": hard, "soft_gate": soft, "full": full}
+            "hard_gate": hard, "goals": {"met": goals_met}, "full": full}
 
 
-def v(qid, score, verdict, **critical):
-    return {"id": qid, "score": score, "verdict": verdict,
-            **{flag: critical.get(flag, False) for flag in (
-                "broken_tool", "hallucinated_narrative", "false_guardrail")}}
+def v(qid, score, verdict=None, dimensions=None, unanchored=False, **critical):
+    if dimensions is None:
+        dimensions = {"tool_choice": 1, "accuracy": 2,
+                      "hallucination_free": 1, "directness": 1}
+    row = {"id": qid, "score": score, "dimensions": dimensions,
+           "unanchored": unanchored, "improvement_comment": "",
+           **{flag: critical.get(flag, False) for flag in (
+               "broken_tool", "hallucinated_narrative", "false_guardrail")}}
+    if verdict is not None:
+        row["verdict"] = verdict
+    return row
 
 
 # compute_grade: aggregates, splits, gates
-grade = compute_grade([v("Q1", 5, "pass"), v("Q2", 1, "fail")],
-                      QS, "m", [], [])
+grade = compute_grade([v("Q1", 5), v("Q2", 1, dimensions={
+                          "tool_choice": 0, "accuracy": 0,
+                          "hallucination_free": 0, "directness": 1})],
+                      QS, "m", [], [], GOALS, ANCHORS)
 assert grade["total"] == 6 and grade["max"] == 10 and grade["percent"] == 60
 assert grade["dev"]["percent"] == 100 and grade["holdout"]["percent"] == 20
 assert grade["gap_pp"] == 80
 assert not grade["hard_gate"]          # a score <=1 breaks the hard gate
-assert not grade["soft_gate"]          # only 50% of questions >=4
+assert not grade["goals"]["met"]
 
-perfect = compute_grade([v("Q1", 5, "pass"), v("Q2", 5, "pass")],
-                        QS, "m", [], [])
-assert perfect["hard_gate"] and perfect["soft_gate"]
+perfect = compute_grade([v("Q1", 5), v("Q2", 5)],
+                        QS, "m", [], [], GOALS, ANCHORS)
+assert perfect["hard_gate"] and perfect["goals"]["met"]
 
 for flag in ("broken_tool", "hallucinated_narrative", "false_guardrail"):
-    critical = compute_grade([v("Q1", 5, "pass", **{flag: True}),
-                              v("Q2", 5, "pass")], QS, "m", [], [])
+    critical = compute_grade([v("Q1", 5, **{flag: True}),
+                              v("Q2", 5)], QS, "m", [], [], GOALS, ANCHORS)
     assert not critical["hard_gate"] and critical["hard_failures"][0]["flags"] == [flag]
 
-err = compute_grade([v("Q1", 5, "pass"),
+err = compute_grade([v("Q1", 5),
                      {"id": "Q2", "error": "api_error", "detail": "boom"}],
-                    QS, "m", [], [])
+                    QS, "m", [], [], GOALS, ANCHORS)
 assert not err["hard_gate"] and "1 scoring errors" in err["degradations"]
 
 old_schema = compute_grade([{"id": "Q1", "score": 5, "verdict": "pass"},
                             {"id": "Q2", "score": 5, "verdict": "pass"}],
-                           QS, "m", [], [])
+                           QS, "m", [], [], GOALS, ANCHORS)
 assert not old_schema["hard_gate"] and "2 scoring errors" in old_schema["degradations"]
 
-incomplete = compute_grade([v("Q1", 5, "pass")], QS, "m", [], [])
+incomplete = compute_grade([v("Q1", 5)], QS, "m", [], [], GOALS, ANCHORS)
 assert not incomplete["hard_gate"] and "1 scoring errors" in incomplete["degradations"]
 
-subset = compute_grade([v("Q1", 5, "pass")], [QS[0]], "m", [], [])
-assert subset["hard_gate"] and subset["soft_gate"]      # no missing verdict for Q2
+subset = compute_grade([v("Q1", 5)], [QS[0]], "m", [], [], GOALS, ANCHORS)
+assert subset["hard_gate"]                              # no missing verdict for Q2
 
-bad_scores = compute_grade([v("Q1", 50, "bad"), v("Q2", "5", "bad")],
-                           QS, "m", [], [])
+bad_scores = compute_grade([v("Q1", 50), v("Q2", "5")],
+                           QS, "m", [], [], GOALS, ANCHORS)
 assert not bad_scores["hard_gate"]
 assert "2 scoring errors" in bad_scores["degradations"]
 assert bad_scores["per_question"] == []
 
 cross = compute_grade(
-    [v("Q1", 5, "pass"), v("Q2", 5, "pass")],
+    [v("Q1", 5), v("Q2", 5)],
     QS, "m", [],
     [{"type": "contradiction", "ids": ["Q1", "Q2"], "comment": "conflict"}],
+    GOALS, ANCHORS,
 )
 assert not cross["hard_gate"] and len(cross["cross_analysis"]) == 1
 
 missing_cross = compute_grade(
-    [v("Q1", 5, "pass"), v("Q2", 5, "pass")], QS, "m", [],
+    [v("Q1", 5), v("Q2", 5)], QS, "m", [],
+    goals=GOALS, anchors=ANCHORS,
 )
 assert not missing_cross["hard_gate"]
 assert "1 cross-analysis errors" in missing_cross["degradations"]
+
+half_point = v("Q1", 4.5, dimensions={"tool_choice": 0.5, "accuracy": 2,
+                                      "hallucination_free": 1, "directness": 1})
+half_grade = compute_grade([half_point], [QS[0]], "m", [], [], GOALS, ANCHORS)
+check("0.5 tool_choice sums in integer hundredths",
+      half_grade["per_question"][0]["score"] == 4.5 and half_grade["hard_gate"])
+bad_dim = compute_grade([v("Q1", 5, dimensions={"tool_choice": 0.25, "accuracy": 2,
+                                                "hallucination_free": 1, "directness": 1.75})],
+                        [QS[0]], "m", [], [], GOALS, ANCHORS)
+check("invalid dimensions are rejected", bad_dim["per_question"] == [])
+bad_sum = compute_grade([v("Q1", 4.4, dimensions={"tool_choice": 0.5, "accuracy": 2,
+                                                  "hallucination_free": 1, "directness": 1})],
+                        [QS[0]], "m", [], [], GOALS, ANCHORS)
+check("dimension sum mismatch is rejected", bad_sum["per_question"] == [])
+unanchored_accuracy = compute_grade([v("Q2", 4, dimensions={"tool_choice": 1,
+                                                            "accuracy": 2,
+                                                            "hallucination_free": 1,
+                                                            "directness": 0},
+                                       unanchored=True)],
+                                    [QS[1]], "m", [], [], GOALS,
+                                    {"Q2": {"anchor": None}})
+check("accuracy above 1 on unanchored is rejected",
+      unanchored_accuracy["per_question"] == [])
+unanchored_contradiction = compute_grade([v("Q2", 4, dimensions={"tool_choice": 1,
+                                                                 "accuracy": 1,
+                                                                 "hallucination_free": 1,
+                                                                 "directness": 1},
+                                            unanchored=False)],
+                                         [QS[1]], "m", [], [], GOALS,
+                                         {"Q2": {"anchor": None}})
+check("judge unanchored contradiction is rejected",
+      unanchored_contradiction["per_question"] == [])
+derived = compute_grade([v("Q1", 3, dimensions={"tool_choice": 1, "accuracy": 1,
+                                                "hallucination_free": 1, "directness": 0})],
+                        [QS[0]], "m", [], [], GOALS, ANCHORS)
+check("verdict is derived when omitted",
+      derived["per_question"][0]["verdict"] == "warn")
+check("improvement_comment is validated but not persisted in per_question",
+      "improvement_comment" not in derived["per_question"][0])
+
+mixed_qs = [
+    {"id": "Q1", "mode": "m", "split": "dev", "question": "?"},
+    {"id": "Q2", "mode": "m", "split": "dev", "question": "?"},
+    {"id": "Q3", "mode": "m", "split": "holdout", "question": "?"},
+    {"id": "Q4", "mode": "m", "split": "holdout", "question": "?"},
+]
+mixed_anchors = {"Q1": {"anchor": "a"}, "Q2": {"anchor": None},
+                 "Q3": {"anchor": "c"}, "Q4": {"anchor": None}}
+mixed = compute_grade([
+    v("Q1", 5),
+    v("Q2", 2.5, dimensions={"tool_choice": 0.5, "accuracy": 1,
+                             "hallucination_free": 0, "directness": 1},
+      unanchored=True),
+    v("Q3", 5),
+    v("Q4", 2.5, dimensions={"tool_choice": 0.5, "accuracy": 1,
+                             "hallucination_free": 0, "directness": 1},
+      unanchored=True),
+], mixed_qs, "m", [], [], GOALS, mixed_anchors)
+check("accuracy and split math use anchored only",
+      mixed["accuracy_pct"] == 100 and mixed["pass_rate_pct"] == 100
+      and mixed["dev"]["percent"] == 100 and mixed["holdout"]["percent"] == 100
+      and mixed["gap_pp"] == 0)
+check("behavior dimensions use all questions",
+      mixed["tool_choice_pct"] == 75 and mixed["hallucination_free_pct"] == 50
+      and mixed["directness_pct"] == 100)
+check("50pct anchored plus mediocre unanchored does not certify",
+      mixed["hard_gate"] and not mixed["goals"]["met"])
+hard_unanchored = compute_grade([v("Q2", 1, dimensions={"tool_choice": 0,
+                                                       "accuracy": 0,
+                                                       "hallucination_free": 0,
+                                                       "directness": 1},
+                                   unanchored=True)],
+                                [QS[1]], "m", [], [], GOALS,
+                                {"Q2": {"anchor": None}})
+check("hard gate applies to unanchored questions", not hard_unanchored["hard_gate"])
+loose_goals = GOALS | {"min_tool_choice_pct": 75, "min_hallucination_free_pct": 50,
+                       "min_directness_pct": 100, "min_anchor_coverage_pct": 50}
+met = compute_grade([v("Q1", 5), v("Q2", 5)], QS, "m", [], [], loose_goals, ANCHORS)
+check("goals can be met", met["goals"]["met"])
+strict = compute_grade([v("Q1", 5), v("Q2", 5)], QS, "m", [], [],
+                       GOALS | {"min_anchor_coverage_pct": 101}, ANCHORS)
+check("goals can fail", not strict["goals"]["met"])
+no_holdout_anchor = compute_grade([v("Q1", 5), v("Q2", 4, dimensions={
+                                      "tool_choice": 1, "accuracy": 1,
+                                      "hallucination_free": 1, "directness": 1},
+                                      unanchored=True)],
+                                  QS, "m", [], [], loose_goals,
+                                  {"Q1": {"anchor": "a"}, "Q2": {"anchor": None}})
+check("holdout with no anchored questions cannot certify",
+      not no_holdout_anchor["goals"]["met"]
+      and no_holdout_anchor["holdout"]["percent"] is None)
+zero_anchors = compute_grade([v("Q1", 4, dimensions={"tool_choice": 1,
+                                                     "accuracy": 1,
+                                                     "hallucination_free": 1,
+                                                     "directness": 1},
+                                unanchored=True),
+                              v("Q2", 4, dimensions={"tool_choice": 1,
+                                                     "accuracy": 1,
+                                                     "hallucination_free": 1,
+                                                     "directness": 1},
+                                unanchored=True)],
+                             QS, "m", [], [], loose_goals, None)
+check("zero anchors cannot certify and records a reason",
+      not zero_anchors["goals"]["met"]
+      and any(d["metric"] == "certifiable_accuracy" and not d["met"]
+              for d in zero_anchors["goals"]["detail"]))
 
 # select_questions: adaptive full triggers and focused selection
 AQ = [
@@ -138,26 +264,39 @@ assert select_questions(AQ, [base], cfg, 4)[1:] == (True, "final_iteration")
 
 # budget/config validation
 assert budget_plan(30, 30, {"answer_budget": 70}) == (30, 10, 30)
-assert not validate_config({"probe_strategy": "full"}, 30)
-assert not validate_config({}, 30)
-assert validate_config({"probe_strategy": "oops"}, 30)
-assert validate_config({"probe_strategy": "adaptive", "focused_max_questions": 0,
+assert not validate_config({"schema_version": 2, "goals": GOALS,
+                            "probe_strategy": "full"}, 30)
+assert validate_config({"schema_version": 2}, 30)
+check("v2 config must freeze goals",
+      "goals must be an object" in validate_config({"schema_version": 2}, 30))
+assert validate_config({"schema_version": 2, "goals": GOALS,
+                        "probe_strategy": "oops"}, 30)
+assert validate_config({"schema_version": 2, "goals": GOALS,
+                        "probe_strategy": "adaptive", "focused_max_questions": 0,
                         "regression_sample": 3, "answer_budget": 70}, 30)
-assert validate_config({"probe_strategy": "adaptive", "focused_max_questions": 10,
+assert validate_config({"schema_version": 2, "goals": GOALS,
+                        "probe_strategy": "adaptive", "focused_max_questions": 10,
                         "regression_sample": 3}, 30)
-assert validate_config({"probe_strategy": "adaptive", "focused_max_questions": 10,
+assert validate_config({"schema_version": 2, "goals": GOALS,
+                        "probe_strategy": "adaptive", "focused_max_questions": 10,
                         "regression_sample": 3, "answer_budget": 59}, 30)
+check("objectives out of range are rejected",
+      validate_config({"schema_version": 2,
+                       "goals": GOALS | {"min_accuracy_pct": 101}}, 30))
 
 # should_stop: the four D7 conditions + gates
-assert should_stop([g(50, hard=True, soft=True)], 5)[0]          # gates passed
+assert should_stop([g(50, hard=True, goals_met=True)], 5)[0]     # gates passed
 assert should_stop([g(60), g(55)], 5)[1].startswith("REGRESSION")
 assert should_stop([g(60), g(61), g(61.5)], 5)[1].startswith("STAGNATION")
 assert not should_stop([g(60), g(65), g(70)], 5)[0]              # improving
 assert should_stop([g(60), g(65)], 2)[1].startswith("MAX_ITERATIONS")
 assert not should_stop([g(60)], 5)[0]                            # keep going
-assert not should_stop([g(60), g(100, hard=True, soft=True, full=False)], 5)[0]
+assert not should_stop([g(60), g(100, hard=True, goals_met=True, full=False)], 5)[0]
 assert not should_stop([g(60), g(55, full=False), g(65)], 5)[0]
 assert should_stop([g(60), g(65, full=False)], 2)[1].startswith("MAX_ITERATIONS")
+check("grade without goals is invalid under schema v2",
+      should_stop([{"percent": 100, "dev": {"percent": 100},
+                    "hard_gate": True, "full": True}], 5)[1].startswith("INVALID_GRADE"))
 
 
 def write_json(path, data):
@@ -179,8 +318,14 @@ def make_run(root, questions, cfg_extra=None, history=None):
         "golden_sha256": hashlib.sha256(golden.read_bytes()).hexdigest(),
         "judge": "codex",
         "max_iterations": 4,
+        "schema_version": 2,
+        "goals": GOALS,
+        "anchors": str(root / "raw" / "anchors.snapshot.json"),
     } | (cfg_extra or {})
     write_json(run / "config.json", cfg)
+    (root / "raw").mkdir(exist_ok=True)
+    write_json(root / "raw" / "anchors.snapshot.json",
+               {q["id"]: {"anchor": "a"} for q in questions})
     if history is not None:
         write_json(run / "history.json", history)
     return run
@@ -263,7 +408,7 @@ with tempfile.TemporaryDirectory() as d:
                     "reason": "focused", "strategy": "adaptive"})
         write_jsonl(raw_dir / "pack.jsonl",
                     [{"id": "Q1", "mode": "sales", "question": "?", "answer": "ok"}])
-        write_json(iter_dir / "verdicts.json", [v("Q1", 5, "pass")])
+        write_json(iter_dir / "verdicts.json", [v("Q1", 5)])
         write_json(iter_dir / "cross-analysis.json", [])
         assert count_probed_rows(run) == 8       # 7 baseline rows + 1 focused row
         rc, out, _ = run_main(run)
@@ -271,9 +416,64 @@ with tempfile.TemporaryDirectory() as d:
         grade = json.loads((iter_dir / "grade.json").read_text())
         assert grade["full"] is False and grade["probed"] == 1
         assert [r["id"] for r in grade["per_question"]] == ["Q1"]
+        check("focused grades do not evaluate goals", "goals" not in grade)
+        check("passing focused run reports focused-passed reason",
+              json.loads(out)["reason"].startswith("FOCUSED PASSED"))
         assert calls == []                       # no reselect/reprobe during finalize
     finally:
         loop.probe = old_probe
+
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    run = make_run(root, QS, {"schema_version": 1})
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    check("config v1 is rejected cleanly",
+          rc == 2 and msg["status"] == "unsupported_schema")
+
+with tempfile.TemporaryDirectory() as d:
+    calls = []
+    old_probe = loop.probe
+    loop.probe = lambda questions, probe_cmd, timeout=120: calls.append(questions) or []
+    try:
+        root = pathlib.Path(d)
+        run = make_run(root, QS)
+        iter_dir = run / "iter-01"
+        raw_dir = iter_dir / "raw"
+        raw_dir.mkdir(parents=True)
+        write_json(iter_dir / "selection.json",
+                   {"selected_ids": ["Q1", "Q2"], "full": True,
+                    "reason": "handoff", "strategy": "full"})
+        write_jsonl(raw_dir / "pack.jsonl",
+                    [{"id": q["id"], "mode": q["mode"], "question": q["question"],
+                      "answer": "prefab"} for q in QS])
+        write_json(iter_dir / "verdicts.json", [v("Q1", 5), v("Q2", 5)])
+        write_json(iter_dir / "cross-analysis.json", [])
+        rc, out, _ = run_main(run)
+        msg = json.loads(out)
+        check("iter-01 handoff finalizes without probing",
+              rc == 0 and msg["status"] == "stopped" and calls == [])
+    finally:
+        loop.probe = old_probe
+
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    run = make_run(root, QS)
+    pathlib.Path(json.loads((run / "config.json").read_text())["anchors"]).write_text(
+        "[", encoding="utf-8")
+    rc, out, _ = run_main(run, "--plan")
+    msg = json.loads(out)
+    check("malformed anchors snapshot degrades during planning",
+          rc == 0 and msg["status"] == "plan")
+
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    run = make_run(root, QS)
+    pathlib.Path(json.loads((run / "config.json").read_text())["anchors"]).unlink()
+    rc, out, _ = run_main(run, "--plan")
+    msg = json.loads(out)
+    check("absent anchors snapshot degrades during planning",
+          rc == 0 and msg["status"] == "plan")
 
 with tempfile.TemporaryDirectory() as d:
     old_probe = loop.probe

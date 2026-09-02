@@ -12,7 +12,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # service-judge-loop
@@ -28,11 +28,12 @@ file; otherwise use a clone of https://github.com/auricIecu/service-judge.
 `scripts/loop.py --run .service-judge/run-<id>/` executes iterations of:
 select a probe pack → probe those questions against the service → ask the
 current Claude Code or Codex harness to judge and cross-analyze the pack →
-write `grade.json` (per-question scores, cross-answer findings, dev/holdout
-aggregates, gates) → append to `history.json` → stop or wait for the next
-human fix.
+write `grade.json` (per-question dimensions, cross-answer findings,
+anchored-only accuracy/dev/holdout metrics, all-question behavior metrics,
+hard gate, and configured goals) → append to `history.json` → stop or wait
+for the next human fix.
 
-It stops on quality gates passed, regression (it notifies — never reverts),
+It stops on hard gate plus configured goals passed, regression (it notifies — never reverts),
 stagnation (<2pp improvement twice in a row), or the iteration limit. LLM
 usage consumes only the active harness subscription/session limits. No API
 key is read and no model API is called by the plugin.
@@ -76,38 +77,86 @@ delete before retrying.
    service-judge skill before, Phase 3 offered to freeze one — reuse it.
    Otherwise generate one now following the service-judge skill's Phase 2–3,
    then freeze it and record its sha256.
-2. **Run config.** Create `.service-judge/run-<id>/config.json` in the
+2. **Goals.** Show the recommended production profile, then ask whether to
+   use it or customize. If customized, keep the recommended values visible
+   while editing. Freeze the final goals in this run's config:
+
+   ```json
+   {
+     "profile": "recommended-production-v1",
+     "min_tool_choice_pct": 95,
+     "min_accuracy_pct": 95,
+     "min_hallucination_free_pct": 100,
+     "min_directness_pct": 95,
+     "min_pass_rate_pct": 95,
+     "min_holdout_score_pct": 95,
+     "max_dev_holdout_gap_pp": 5,
+     "min_anchor_coverage_pct": 50
+   }
+   ```
+
+   These goals are percentages over the scopes in `grade.json`: accuracy,
+   pass rate, dev, holdout, and gap use anchored questions only; tool choice,
+   hallucination-free, and directness use all questions. Hard gates are not
+   configurable.
+3. **Run config.** Create `.service-judge/run-<id>/config.json` in the
    SERVICE's repo (not the skill repo):
 
    ```json
    {
+     "schema_version": 2,
      "probe_cmd": "curl -s https://staging.example.com/api/chat -H 'Content-Type: application/json' -d '{\"message\": {question}, \"session_id\": {qid}}'",
      "golden_set": ".service-judge/questions.golden.jsonl",
      "golden_sha256": "<sha256 of the file>",
+     "anchors": ".service-judge/run-<id>/raw/anchors.snapshot.json",
      "judge": "codex",
+     "goals": {
+       "profile": "recommended-production-v1",
+       "min_tool_choice_pct": 95,
+       "min_accuracy_pct": 95,
+       "min_hallucination_free_pct": 100,
+       "min_directness_pct": 95,
+       "min_pass_rate_pct": 95,
+       "min_holdout_score_pct": 95,
+       "max_dev_holdout_gap_pp": 5,
+       "min_anchor_coverage_pct": 50
+     },
+     "baseline_holdout_exposed": false,
      "max_iterations": 3
    }
    ```
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
-   Point `probe_cmd` at staging, not production. Optional key: `anchors`
-   (path to the ground-truth file). Set `judge` to the active harness name
+   Point `probe_cmd` at staging, not production. `anchors` points to the
+   machine-readable ground-truth snapshot. Set `judge` to the active harness name
    (`codex` or `claude-code`); it is recorded as metadata.
-3. **Prepare the iteration.** Run:
+   Schema v1 configs are rejected; start a new run instead of editing old
+   `history.json`.
+4. **Baseline handoff.** If the user accepted the loop after a one-off run,
+   copy the accepted baseline into `iter-01/selection.json`,
+   `iter-01/raw/pack.jsonl`, `iter-01/verdicts.json`, and
+   `iter-01/cross-analysis.json`; write `selection.json.selected_ids` in the
+   same order as `pack.jsonl`; write a complete v2 `config.json` with
+   `schema_version`, `goals`, `probe_cmd`, `golden_sha256`, `anchors`, and
+   `baseline_holdout_exposed: true`; then run `loop.py` once to write
+   `grade.json` and `history.json` without probing. If the user declined to
+   freeze the golden set in the one-off, do not hand off; freeze now and probe
+   a fresh baseline.
+5. **Prepare the iteration.** Run:
    `python3 <scripts-dir>/loop.py --run .service-judge/run-<id>/`
    The command probes once and returns `status: needs_judgment` with the pack,
    anchors, rubric, and exact output paths.
-4. **Judge with this harness.** Follow the sibling service-judge judging
+6. **Judge with this harness.** Follow the sibling service-judge judging
    contract. Claude Code may use its own judge subagents; Codex judges in the
    current session in batches of ~10. Write the requested `verdicts.json` and
    `cross-analysis.json`. Never call an external model API.
-5. **Finalize.** Run the same `loop.py --run ...` command again. It validates
+7. **Finalize.** Run the same `loop.py --run ...` command again. It validates
    the harness output, writes `grade.json`/`history.json`, and returns
    `stopped` or `needs_fix`. If `needs_fix`, wait for the human fix and repeat
-   from step 3.
+   from step 5.
    Between iterations, show the user the dev detail but ONLY the aggregate
    and gap for holdout (D4 — holdout questions must not leak into fixes).
-6. **When it stops,** report why (gates / regression / stagnation / limit),
+8. **When it stops,** report why (goals / regression / stagnation / limit),
    the grade trajectory from `history.json`, and what to fix next. Acting on
    fixes is the human's move; the loop only measures.
 

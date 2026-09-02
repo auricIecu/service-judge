@@ -1,0 +1,10 @@
+{
+  "Q01": {
+    "anchor": "total_customers=24305",
+    "query": "SELECT count(*) FROM customers"
+  },
+  "Q02": {
+    "anchor": null,
+    "note": "date is beyond available data - trap question"
+  }
+}

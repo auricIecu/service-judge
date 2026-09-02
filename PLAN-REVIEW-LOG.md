@@ -211,3 +211,78 @@ VERDICT: APPROVED
 ### Resolution
 
 Converged. APPROVED en la ronda 6 (una de ellas, la 4, se perdió por un error de herramienta mío, no por desacuerdo). Pendiente: sign-off humano antes de escribir código.
+
+---
+
+## Act 3 — Build (Codex builds, Claude reviews)
+
+**Scope:** Tramo 1 (`1.6.0`) only — PLAN.md items 1–8, plus item 23 limited to the
+1.6.0 bump, plus one line pulled early from item 19 (`.gitignore` for
+`.service-judge/**/config.json`: `config.json` already carries `probe_cmd` with the
+evaluated service's API key and was never ignored — a live leak, not worth deferring
+two releases). Tramos 2 and 3 declared out of scope in the build contract.
+
+**Setup:** `codex-cli 0.151.0`, `gpt-5.5`, `model_reasoning_effort = high`, `--yolo`,
+thread `01a05f39-c9a9-7403-8061-39fa21151dba`. Clean-tree gate satisfied by committing
+the plan docs as `5a97f89`. Baseline proof green before launch.
+
+### Round 1 — Codex build
+
+15 files changed, +624/−102. `loop.py` +242, `test_loop.py` +266. Anchors fixture
+moved from `.md` to `.json`. All 18 tests enumerated in PLAN.md item 8 present and
+substantive. Proof green.
+
+### Claude's verdict — Round 1: REVISE (3 defects)
+
+1. **`FOCUSED PASSED` branch is dead code — correctness regression.** `main()` pops
+   `goals` when `not grade["full"]`, and the branch that sets the FOCUSED PASSED
+   reason requires *both* `not grade["full"]` and `grade["goals"]["met"]`. It can
+   never fire. A focused iteration whose targeted questions all pass now prints
+   `{"status": "needs_fix", "reason": ""}` — the exact empty-reason-with-hard-gate-true
+   symptom found by hand in 1.5.0, reintroduced. Fix: predicate on `dev_fails`, not on
+   goals; goals are full-run-only by items 4 and 13.
+2. **`improvement_comment` copied into `per_question` — spec break and data-leak
+   surface.** PLAN.md item 9 states as an existing fact that `compute_grade` discards
+   it, which is *why* the Tramo 2 fix-brief must be built from the validated verdicts
+   instead. Worse: `per_question` is serialized into `grade.json` and `history.json`,
+   and `service-judge-loop/SKILL.md:167` still says verbatim that both are safe to
+   commit — that claim is only corrected in Tramo 2 (item 11), out of scope here. Judge
+   prose about real service answers must not enter those files in 1.6.0. Validation of
+   the field stays; the key leaves the row.
+3. **`assert ADDED_TESTS == 22`** — a self-counting assertion that proves nothing and
+   will fail spuriously the moment Tramo 2 adds a test to the file.
+
+Verified as correct and left alone: the hundredths comparison for `tool_choice: 0.5`;
+`unanchored` derived from the snapshot with the judge's claim validated against it;
+the anchored/all-questions metric split; `should_stop` reading `fulls[-1]` so focused
+grades never hit the `INVALID_GRADE: missing goals` guard; `None`-safe REGRESSION and
+STAGNATION comparisons; short-circuit ordering in the dimension validation chain (no
+`TypeError` on a non-numeric dimension); v1 config rejection with return code 2.
+
+### Round 2 — Codex fixes (same session, resumed)
+
+All three defects fixed, no deviations. `dev_fails` moved above the branch and the
+focused-passed predicate now reads it; `improvement_comment` still validated but no
+longer copied into `per_question`; the self-counting assertion removed and `check()`
+reduced to a named `assert`. Two new assertions: a passing focused iteration reports
+`FOCUSED PASSED`, and `per_question` rows carry no `improvement_comment`.
+
+### Claude's verdict — Round 2: APPROVED
+
+Proof green, run by Claude, not taken from Codex's report. Beyond re-reading the diff,
+five mutations were applied to `loop.py` to check the suite actually has teeth on the
+spec's load-bearing decisions — every one was caught:
+
+| Mutation | Result |
+|---|---|
+| Revert the focused-passed predicate to the dead `goals` check | killed |
+| Re-add `improvement_comment` to `per_question` | killed |
+| Compute `accuracy_pct` over all questions instead of anchored | killed |
+| Compute `tool_choice_pct` over anchored instead of all questions | killed |
+| Trust the judge's `unanchored` instead of deriving it from the snapshot | killed |
+
+That last one matters most: it is the defect Codex found in Act 2 round 1 — letting the
+evaluated party decide which questions leave the denominator — and the suite now fails
+if anyone reintroduces it.
+
+**Rounds used:** 2 of `MAX_FIX_ROUNDS: 2` + 1 (build). Claude never had to take over.

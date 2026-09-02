@@ -57,10 +57,10 @@ Present to the user, in their language:
 > **Service:** <name> — <one-line description>
 > **Modes detected:** <list>
 > **Probe endpoint:** <URL> (<staging|production|unknown — ASK>)
-> **Database:** <reachable via X | not available — behavior-only eval>
+> **Database:** <reachable via X | not available — behavior/plausibility only>
 > **Observability:** <found X | none found>
 > **Confidence impact:** <"full anchors available" | "no ground truth: the
-> judge can only score behavior/plausibility, accuracy will not be graded">
+> judge can score behavior/plausibility, but the loop cannot certify accuracy">
 > **Artifacts go to:** <`eval-runs/` | `.context/` | other> (nothing else in
 > the repo is written to)
 

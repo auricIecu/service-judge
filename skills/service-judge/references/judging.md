@@ -34,7 +34,7 @@ in the report.
 - **Claude Code:** dispatch the judge as a subagent with the strongest model
   available. Give it: the full text of `references/rubric.md` inline in the
   prompt, the Phase 1 tool/mode catalog (so tool choice is judgeable),
-  `anchors.md`, and the pack.
+  `raw/anchors.snapshot.json`, and the pack.
   Batch ~10 questions per subagent to keep each judgment focused.
   The judge subagent needs NO tools — scoring is pure reading. Dispatch it
   with tool access restricted to none (no shell, no network, no file writes),
@@ -60,6 +60,9 @@ The rubric lives in `references/rubric.md` — the single source of truth.
 Load it and pass its FULL text inline
 to whoever scores (do not paraphrase; inline it even if the scorer could
 read the file itself, so the rubric always travels with the call).
+Each verdict must include the required `dimensions`, `score`, `unanchored`,
+`improvement_comment`, and critical booleans. Do not write `verdict`; the loop
+derives pass/warn/fail from `score`.
 
 ## What to hunt beyond the rubric (the judge's real value)
 

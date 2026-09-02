@@ -6,6 +6,13 @@ Fill `assets/report-template.md`. Rules:
   improvement comments.
 - **Scoring math:** global grade = sum of per-question scores out of N×5.
   Per-mode = same restricted to the mode. Round percentages to whole numbers.
+  Accuracy, pass rate, dev, holdout, and gap use anchored questions only.
+  Tool choice, hallucination-free, and directness use all questions.
+- **Goals:** include every configured goal with target, actual, and met/missed.
+  A `null` actual is missed. Do not mention `soft_gate`; v2 grades use
+  `hard_gate` plus `goals.met`.
+- **Unanchored block:** report unanchored count, percent, and dimension
+  percentages separately from certifiable accuracy.
 - **Question keys:** the scorecard `Q#` column uses the canonical `Q<NN>` ids
   from the pack/anchors, so cross-answer findings ("Q9 contradicts Q14")
   are traceable to rows.
@@ -40,8 +47,9 @@ Fill `assets/report-template.md`. Rules:
   it came from.
 - **Machine-readable twin:** next to the report, save
   `<artifacts-dir>/<date>-scorecard.json` — one record per question:
-  `{id, mode, question, score, verdict, unanchored, improvement_comment,
-  broken_tool, hallucinated_narrative, false_guardrail}` plus a header
+  `{id, mode, question, dimensions, score, verdict, unanchored,
+  improvement_comment, broken_tool, hallucinated_narrative, false_guardrail}`
+  plus a header
   `{date, judge, n, anchored, global_score, cross_analysis, degradations,
   usage}`. If a previous scorecard exists there, add a short "Delta since
   <date>" section to the report: global change, questions that flipped
