@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1 — 2026-09-03
+
+External tool-choice judgments now keep the evidence needed to support them.
+
+- **Structured probes:** `probe_cmd` may return the documented answer, tool,
+  model, latency, and usage fields as JSON; plain-text output still works.
+- **Judge context:** optional non-secret `service_context` carries the Phase 1
+  mode/tool catalog into the external judge prompt.
+
 ## 2.0.0 — 2026-09-03
 
 Optional external judging for the improvement loop, with consent, retry, and

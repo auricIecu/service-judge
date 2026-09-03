@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 # service-judge-loop
@@ -199,11 +199,12 @@ delete before retrying.
    ```json
    {
      "schema_version": 2,
-     "probe_cmd": "curl -s https://staging.example.com/api/chat -H 'Content-Type: application/json' -d '{\"message\": {question}, \"session_id\": {qid}}'",
+     "probe_cmd": "python3 /absolute/path/to/probe-wrapper.py {question} {qid}",
      "golden_set": ".service-judge/questions.golden.jsonl",
      "golden_sha256": "<sha256 of the file>",
      "anchors": ".service-judge/run-<id>/raw/anchors.snapshot.json",
      "judge": "current harness",
+     "service_context": "Modes: analytics. Tools: count_products counts product rows; average_order_value averages order totals.",
      "goals": {
        "profile": "recommended-production-v1",
        "min_tool_choice_pct": 95,
@@ -229,9 +230,23 @@ delete before retrying.
    ```
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
+   `probe_cmd` may print plain answer text, or one JSON object with a string
+   `answer`, a `tools_called` field, and any exposed `model`, `latency_ms`,
+   `error`, `model_generations`, `input_tokens`, `cached_input_tokens`, or
+   `output_tokens`.
+   The loop keeps only those fields and always takes `id`, `mode`, and
+   `question` from the golden set. Use `tools_called: []` when no tool ran and
+   `tools_called: null` only when telemetry is unavailable. Plain text remains
+   supported and records `tools_called: null`.
+
    Point `probe_cmd` at staging, not production. `anchors` points to the
    machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set
    `judge` to the human-readable judge label; it is recorded in the grade.
+   `service_context` is optional, non-secret text containing the Phase 1
+   mode/tool catalog and what each tool or data path does. An external judge
+   receives it inside `{prompt}`; omit secrets, credentials, and customer data.
+   Without it, opaque tool names are not judgeable; without a tool trace,
+   `min_tool_choice_pct` is under-evidenced.
    Schema v1 configs are rejected; start a new run instead of editing old
    `history.json`. For an approved autopilot run, change `mode` to `autopilot`
    and set each action to exactly what the dialog authorized. Omit the whole

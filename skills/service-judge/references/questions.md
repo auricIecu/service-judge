@@ -136,6 +136,8 @@ user — hiding it is the loop's job, not this one.
   `model_generations` is how many times the model was called for that one
   question (tool loops make it >1) — it is what makes an eval expensive, so
   capture it whenever it's available and say so in the report when it isn't.
+  Record `tools_called: []` when no tool ran; reserve `null` for unavailable
+  telemetry. Never turn unavailable evidence into an empty trace.
 - The pack `id` IS the canonical question key `Q<NN>` (e.g. `Q07`): the same
   key used in `anchors.snapshot.json`, in the scorecard's `#` column, and as the suffix
   of the probe session ID (`eval-<date>-Q<NN>`).
