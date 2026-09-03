@@ -47,7 +47,8 @@ rest. Offer to widen; never widen silently.
 
 ## Reuse (Phase 2, before anything else)
 
-Judging is free, answers are not. Re-judge a stored pack instead of re-probing
+In-session judging is free by default; external judging uses that harness's
+subscription. Answers are not free. Re-judge a stored pack instead of re-probing
 whenever NONE of these changed since it was captured: service code/commit,
 system prompt, tool schemas, candidate model, the underlying data the
 questions touch, and the conversation fixtures. That covers the common cases:

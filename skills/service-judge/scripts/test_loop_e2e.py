@@ -99,6 +99,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert status["reason"] == "PASSED: hard gate and goals met", status
     assert "soft_gate" not in clean                    # removed in 1.6.0
     assert clean["hard_gate"] and clean["goals"]["met"]
+    assert clean["judge"] == {"label": "mock-harness", "cmd_sha256": None}
     assert clean["anchor_coverage_pct"] == 90          # 90 anchored of 100 asked
     assert clean["unanchored_block"]["count"] == 10
     assert clean["accuracy_pct"] == 100 and clean["pass_rate_pct"] == 100

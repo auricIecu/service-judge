@@ -1,7 +1,8 @@
 # <Service name> — Evaluation Report
 
-**Date:** <date> · **Judge:** <model> · **Questions:** <N> · **Confidence:** ~<X>% (±<Y>%)
+**Date:** <date> · **Judge:** <label> · **Judge SHA-256:** <cmd_sha256|null> · **Questions:** <N> · **Confidence:** ~<X>% (±<Y>%)
 **Anchors:** <K>/<N> questions anchored · **Environment probed:** <staging|production>
+**Judge command:** <first token …|in-session> · **External egress consent:** <authorization record|not applicable>
 <!-- If any degradation occurred (no DB, judge below Fable, outputs provided
      by user, etc.) list each one here as a ⚠️ line. If the probed endpoint
      persisted data, list the eval-* session IDs used so the user can clean up. -->
@@ -46,7 +47,7 @@
 
 | | |
 |---|---|
-| Judge | <model> — **$0**, ran on the existing harness subscription |
+| Judge | <label> — <free on active harness|uses external harness subscription> |
 | Answers requested | <N> (<canary N> canary + <rest>) · <"fresh probe" or "re-judged from pack <ref>"> |
 | Model generations | <G> (<G/N> per question) |
 | Tokens (in / cached / out) | <i> / <c> / <o> <!-- or: not captured — service does not expose usage --> |

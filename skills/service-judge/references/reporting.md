@@ -22,6 +22,10 @@ Fill `assets/report-template.md`. Rules:
 - **Confidence header:** repeat the sampling margin for the chosen N, plus
   EVERY degradation recorded during the run (no DB, unanchored fraction,
   judge below default, outputs user-provided). No silent degradations.
+- **Judge audit:** for the default in-session judge, record `label` and a null
+  `cmd_sha256`. For an external judge, record `label`, `cmd_sha256`, the command
+  redacted to its first token (for example, `codex …`), and the egress consent
+  from `authorization.json`. Never include the literal `judge_cmd`.
 - **Improvement comments:** one sentence, actionable, specific ("cap
   `get_pnl_evolution` at the last real month like `chart_data` does" — not
   "improve data handling"). Plain text only — strip Markdown links/images/
@@ -31,10 +35,10 @@ Fill `assets/report-template.md`. Rules:
   A broken tool whose data exists elsewhere is almost always #1 — it's a
   wiring fix that converts ❌s into ✅s.
 - **Cost & efficiency:** report what the run actually consumed, right under
-  the grade. Judge cost is 0 (it ran on the user's harness subscription) —
-  say so explicitly, so nobody "optimises" the wrong half. For the evaluated
-  service, report what the pack captured: questions asked, model generations,
-  input / cached / output tokens, and latency p50/p95. Derive
+  the grade. The default in-session judge is free on the active harness
+  subscription; an external judge consumes that other harness's subscription.
+  For the evaluated service, report what the pack captured: questions asked,
+  model generations, input / cached / output tokens, and latency p50/p95. Derive
   `generations_per_question` and, when scores are in, `cost per correct
   answer` — comparing two candidates on score alone hides the one that got
   there by burning 3× the context. If the pack has no usage fields, write
@@ -53,8 +57,10 @@ Fill `assets/report-template.md`. Rules:
   `{id, mode, question, dimensions, score, verdict, unanchored,
   improvement_comment, broken_tool, hallucinated_narrative, false_guardrail}`
   plus a header
-  `{date, judge, n, anchored, global_score, cross_analysis, degradations,
-  usage}`. If a previous scorecard exists there, add a short "Delta since
+  `{date, judge: {label, cmd_sha256, command}, external_egress_consent, n,
+  anchored, global_score, cross_analysis, degradations, usage}`. The `command`
+  value is the first-token redaction, never the literal template. If a previous
+  scorecard exists there, add a short "Delta since
   <date>" section to the report: global change, questions that flipped
   verdict, fixes confirmed.
 - **Deliver, then exit.** Present the report and save it as

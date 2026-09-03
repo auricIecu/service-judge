@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.7.2"
+  version: "2.0.0"
 ---
 
 # service-judge-loop
@@ -28,7 +28,8 @@ file; otherwise use a clone of https://github.com/auricIecu/service-judge.
 
 `scripts/loop.py --run .service-judge/run-<id>/` executes iterations of:
 select a probe pack → probe those questions against the service → ask the
-current Claude Code or Codex harness to judge and cross-analyze the pack →
+current harness, or an optional configured external harness, to judge and
+cross-analyze the pack →
 write `grade.json` (per-question dimensions, cross-answer findings,
 anchored-only accuracy/dev/holdout metrics, all-question behavior metrics,
 hard gate, and configured goals) → append to `history.json` → stop or wait
@@ -37,13 +38,16 @@ for the next fix. Manual mode waits for a human; autopilot writes a redacted
 
 It stops on hard gate plus configured goals passed, regression (it notifies — never reverts),
 stagnation (<2pp improvement twice in a row), the iteration limit, or an
-autopilot full run with nothing actionable left for the fixer. LLM
-usage consumes only the active harness subscription/session limits. No API
-key is read and no model API is called by the plugin.
+autopilot full run with nothing actionable left for the fixer. LLM usage
+consumes the active harness subscription/session limits by default; an external
+judge consumes that other harness's subscription. No API key is read and no
+model API is called directly by the plugin.
 
-**Cost.** Judging is free; the answers are not. With no `probe_strategy`, or
-with `"probe_strategy": "full"`, the loop deliberately re-probes the WHOLE
-golden set every iteration; that is the backwards-compatible behavior.
+**Cost.** Judging is free by default in the active harness; an external judge
+uses that other harness's subscription. The answers are not free. With no
+`probe_strategy`, or with `"probe_strategy": "full"`, the loop deliberately
+re-probes the WHOLE golden set every iteration; that is the backwards-compatible
+behavior.
 
 For cheaper development iterations, opt in to `"probe_strategy": "adaptive"`.
 Adaptive still starts with a full baseline and can only satisfy the quality
@@ -98,6 +102,10 @@ delete before retrying.
    ignored. If setup is missing, have the user add and commit the ignore rules
    or commit the golden set before authorization; autopilot never stages any
    `.service-judge/` path.
+
+   `.service-judge/run-*/config.json` must remain gitignored in every mode. It
+   contains `probe_cmd`, which commonly embeds the evaluated service's API key,
+   and may contain `judge_cmd` with headers or tokens.
 2. **Goals.** Show the recommended production profile, then ask whether to
    use it or customize. If customized, keep the recommended values visible
    while editing. Freeze the final goals in this run's config:
@@ -120,7 +128,34 @@ delete before retrying.
    pass rate, dev, holdout, and gap use anchored questions only; tool choice,
    hallucination-free, and directness use all questions. Hard gates are not
    configurable.
-3. **Autonomy and authorization.** A missing `autonomy` block means manual
+3. **Judge and external egress.** The current session is the default judge and
+   returns `needs_judgment` for the active harness at no extra cost. To use an
+   external judge, choose Codex, Claude Code, or DeepSeek Harness and show its
+   configured default model before any answers are requested; there is no
+   automatic "most capable" model resolution.
+
+   Before enabling `judge_cmd`, show that `{prompt}`, `{pack}`, `{rubric}`, and
+   `{anchors}` leave for the chosen harness and ask for explicit consent. Record
+   the same object used by the one-off skill in
+   `.service-judge/run-<id>/authorization.json`:
+
+   ```json
+   {
+     "external_judge": {
+       "timestamp": "2026-09-03T10:00:00Z",
+       "harness": "codex",
+       "files": ["{prompt}", "{pack}", "{rubric}", "{anchors}"],
+       "approved_text": "<exact text approved in this conversation>"
+     }
+   }
+   ```
+
+   Preserve the autopilot authorization fields below when both permissions are
+   recorded in the same file. This file is an audit record, not enforcement.
+   Record the consent in the final report together with the judge label,
+   command SHA-256, and command redacted to its first token. Never put the
+   literal `judge_cmd` in stdout, a grade, history, or report.
+4. **Autonomy and authorization.** A missing `autonomy` block means manual
    mode. Before selecting autopilot, show one authorization dialog containing:
    the current coder and model, judge, allowed repo, environment, exact goals,
    probe strategy, maximum iterations, answer budget, allowed actions
@@ -158,7 +193,7 @@ delete before retrying.
    }
    ```
 
-4. **Run config.** Create `.service-judge/run-<id>/config.json` in the
+5. **Run config.** Create `.service-judge/run-<id>/config.json` in the
    SERVICE's repo (not the skill repo):
 
    ```json
@@ -168,7 +203,7 @@ delete before retrying.
      "golden_set": ".service-judge/questions.golden.jsonl",
      "golden_sha256": "<sha256 of the file>",
      "anchors": ".service-judge/run-<id>/raw/anchors.snapshot.json",
-     "judge": "codex",
+     "judge": "current harness",
      "goals": {
        "profile": "recommended-production-v1",
        "min_tool_choice_pct": 95,
@@ -195,13 +230,46 @@ delete before retrying.
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
    Point `probe_cmd` at staging, not production. `anchors` points to the
-   machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set `judge` to the active harness name
-   (`codex` or `claude-code`); it is recorded as metadata.
+   machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set
+   `judge` to the human-readable judge label; it is recorded in the grade.
    Schema v1 configs are rejected; start a new run instead of editing old
    `history.json`. For an approved autopilot run, change `mode` to `autopilot`
    and set each action to exactly what the dialog authorized. Omit the whole
    block for backwards-compatible manual mode.
-5. **Autopilot preflight and branch.** Manual mode skips this step. Before
+
+   For an approved external judge, add:
+
+   ```json
+   {
+     "judge": "codex/<configured-default>",
+     "judge_cmd": "codex exec -s read-only -o {out} \"$(cat {prompt})\" < /dev/null",
+     "judge_timeout": 900
+   }
+   ```
+
+   `judge_cmd` is a trusted shell template like `probe_cmd`, but its only
+   placeholders are the absolute, shell-quoted paths `{prompt}`, `{pack}`,
+   `{rubric}`, `{anchors}`, and `{out}`. It never receives answer content on the
+   command line. Omit it to retain the in-session flow. `judge_timeout` is an
+   optional positive integer and defaults to 900 seconds. Use the exact
+   isolation templates in the sibling skill's `references/judging.md`.
+
+   A changed command after the first grade returns `judge_drift` before the
+   iteration is probed, so drift never costs a pack of answers. REMOVING
+   `judge_cmd` counts as a change: falling back to the in-session judge mid-run
+   would leave one `history.json` holding verdicts from two different judges.
+   Restore the original command or start and authorize a new run. After a
+   failed, timed-out, missing, or malformed result, `loop.py` appends a format
+   instruction and re-invokes the command exactly once. A second failure
+   returns `judge_failed` without consuming an iteration or writing grade or
+   history. Fix the command or harness and run the same invocation again.
+   Output that parses but breaks the rubric contract (ids outside the pack, a
+   score that is not its dimension sum) returns `invalid_judgment` and is never
+   written: `verdicts.json` and `cross-analysis.json` appear only after
+   `compute_grade` accepts them, so re-running re-invokes the judge instead of
+   re-grading the same rejected verdicts. The raw output stays in
+   `<iter>/raw/judge-out.json` for inspection.
+6. **Autopilot preflight and branch.** Manual mode skips this step. Before
    copying a baseline or probing in autopilot, run
    `python3 <scripts-dir>/loop.py --run .service-judge/run-<id>/ --plan`.
    `loop.py` checks that the authorized path is a git repo, its product tree is
@@ -214,7 +282,7 @@ delete before retrying.
    After a passing plan, create the branch with
    `git switch -c service-judge/run-<id>`. This is the pilot's action:
    `loop.py` never creates branches, edits product code, commits, or reverts.
-6. **Baseline handoff.** If the user accepted the loop after a one-off run,
+7. **Baseline handoff.** If the user accepted the loop after a one-off run,
    copy the accepted baseline into `iter-01/selection.json`,
    `iter-01/raw/pack.jsonl`, `iter-01/verdicts.json`, and
    `iter-01/cross-analysis.json`; write `selection.json.selected_ids` in the
@@ -224,21 +292,23 @@ delete before retrying.
    `grade.json` and `history.json` without probing. If the user declined to
    freeze the golden set in the one-off, do not hand off; freeze now and probe
    a fresh baseline.
-7. **Prepare the iteration.** Run:
+8. **Prepare the iteration.** Run:
    `python3 <scripts-dir>/loop.py --run .service-judge/run-<id>/`
-   The command probes once and returns `status: needs_judgment` with the pack,
-   anchors, rubric, and exact output paths.
-8. **Judge with this harness.** Follow the sibling service-judge judging
-   contract. Claude Code may use its own judge subagents; Codex judges in the
-   current session in batches of ~10. Write the requested `verdicts.json` and
-   `cross-analysis.json`. Never call an external model API.
-9. **Finalize.** Run the same `loop.py --run ...` command again. It validates
-   the harness output, writes `grade.json`/`history.json`, and returns
-   `stopped` or `needs_fix`. In manual mode, wait for the human fix and repeat
-   from step 7.
-   Between iterations, show the user the dev detail but ONLY the aggregate
-   and gap for holdout (D4 — holdout questions must not leak into fixes).
-10. **When it stops,** report why (goals / regression / stagnation / limit),
+   The command probes once. Without `judge_cmd`, it returns
+   `status: needs_judgment` with the pack, anchors, rubric, and exact output
+   paths. With `judge_cmd`, it invokes the external judge, validates its JSON,
+   and continues grading in the same invocation.
+9. **Judge with this harness.** On `needs_judgment`, follow the sibling
+   service-judge judging contract. Use available judge subagents; otherwise
+   judge in the current session in batches of ~10. Write the requested
+   `verdicts.json` and `cross-analysis.json`. Never call an external model API.
+10. **Finalize.** After `needs_judgment`, run the same `loop.py --run ...`
+    command again. It validates the harness output, writes
+    `grade.json`/`history.json`, and returns `stopped` or `needs_fix`. In manual
+    mode, wait for the human fix and repeat from step 8.
+    Between iterations, show the user the dev detail but ONLY the aggregate
+    and gap for holdout (D4 — holdout questions must not leak into fixes).
+11. **When it stops,** report why (goals / regression / stagnation / limit),
     the grade trajectory from `history.json`, and what to fix next. Acting on
     fixes is the human's move in manual mode; the loop itself always only
     measures.

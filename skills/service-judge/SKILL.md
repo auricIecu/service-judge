@@ -18,7 +18,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "1.7.2"
+  version: "2.0.0"
 ---
 
 # service-judge
@@ -50,13 +50,14 @@ scorecard. Starting with discovery."
 6. All user-facing output (the opening announcement AND the final report) is
    written in the USER'S conversation language. Internal work happens in
    English.
-7. **Judging is free; answers are not.** The judge runs on the user's existing
-   harness subscription at no extra cost. Every question you send to the
-   evaluated service does cost them — one question can trigger several
-   internal generations with long context. So the number to minimise is
-   *answers requested*, never *judging thoroughness*. Never buy 100 answers
-   to learn what 12 would have told you, and never re-probe for something a
-   stored pack already answers (see `references/questions.md` §Reuse).
+7. **Judging is free by default; answers are not.** The in-session judge uses
+   the active harness subscription at no extra cost. An external judge consumes
+   that other harness's subscription. Every question sent to the evaluated
+   service does cost the user — one question can trigger several internal
+   generations with long context. So the number to minimise is *answers
+   requested*, never *judging thoroughness*. Never buy 100 answers to learn
+   what 12 would have told you, and never re-probe for something a stored pack
+   already answers (see `references/questions.md` §Reuse).
 
 ## Environment detection (do this first, silently)
 
@@ -67,7 +68,7 @@ Determine which tier you are in and adapt:
 | Filesystem/shell | Can you run shell commands and read local files? | Use GitHub connector / ask user to paste key files |
 | Network to service | Can you curl the service base URL? | Switch to "bring your outputs" mode (Phase 3 alt) |
 | Database | Phase 1 cascade | Behavior/plausibility only; the loop cannot certify accuracy without anchors |
-| Subagents with model override | Claude Code only | Do everything in-session; ask user to switch models at the judge step |
+| Subagents with model override | Detect the active harness | Judge in-session if unavailable; ask user to switch models at the judge step |
 
 Never fail hard because a capability is missing. Degrade per the table and
 record every degradation — they all appear in the report's confidence notes.
@@ -82,7 +83,8 @@ Load `references/discovery.md` and follow it.
 
 Check first: does a usable answer pack from a previous run already exist? If
 the service hasn't changed in any way that alters its behaviour, re-judge that
-pack instead of re-probing — zero cost (`references/questions.md` §Reuse).
+pack instead of re-probing — zero new service answers
+(`references/questions.md` §Reuse).
 
 Then: does `.service-judge/questions.golden.jsonl` exist? If yes, offer to
 REUSE it — skips generation, keeps scores comparable across runs.
@@ -93,6 +95,35 @@ Otherwise present the tier menu (exact table and confidence wording in
 answers their actual question; if they are evaluating one specific change,
 say so and weight the set toward the affected modes.
 **Gate:** user picked a tier, or chose to reuse the golden set or a pack.
+
+## Judge choice and external egress
+
+Before Phase 3 spends answers, ask which judge to use with no preselected
+option: the current session, Codex, Claude Code, or DeepSeek Harness. If the
+user does not choose, use the current session; it is the free default. External
+harnesses use their configured default model unless `judge_cmd` overrides it.
+Show that configured default before requesting answers; do not claim to resolve
+the "most capable" model automatically.
+
+Before enabling an external judge, show that `{prompt}`, `{pack}`, `{rubric}`,
+and `{anchors}` leave for the chosen harness and ask for explicit consent.
+Record the same `external_judge` object in `<artifacts-dir>/authorization.json`,
+where `<artifacts-dir>` is the Phase 1 location (`eval-runs/` by default):
+
+```json
+{
+  "external_judge": {
+    "timestamp": "2026-09-03T10:00:00Z",
+    "harness": "codex",
+    "files": ["{prompt}", "{pack}", "{rubric}", "{anchors}"],
+    "approved_text": "<exact text approved in this conversation>"
+  }
+}
+```
+
+The authorization file is an audit record, not authority. The final report
+records the consent, judge label, command SHA-256, and command redacted to its
+first token; it never includes the literal `judge_cmd`.
 
 ## Phase 3 — Generation & probing (canary first)
 
@@ -125,18 +156,22 @@ obtained.
 ## Phase 4 — Judging
 
 Load `references/judging.md` and follow it. The judge must be the STRONGEST
-model available in your environment. In Claude environments that is
+model available in the default in-session mode. In Claude environments that is
 `claude-fable-5` by default; if unavailable, escalate down (Opus, then
 Sonnet). In other agents (Codex CLI, etc.) use the strongest reasoning model
 you have. Always record which judge was used.
 - Claude Code: run the judge as a subagent with the strongest model.
 - claude.ai chat: tell the user exactly when to switch models with the model
   picker, then judge in-session.
-- Agents without subagents (Codex CLI and similar): judge in-session,
-  sequentially, batching ~10 questions per pass.
-If the strongest reachable judge is WEAKER than the model that generated the
-answers, warn the user and request an upgrade before judging; if they decline,
-record "judge < judged" as a confidence caveat in the report.
+- If subagents are unavailable, judge in-session, sequentially, batching ~10
+  questions per pass.
+- If the user chose an external harness, use its approved `judge_cmd` and the
+  warning and audit rules in `references/judging.md`.
+In the default in-session mode, if the strongest reachable judge is WEAKER
+than the model that generated the answers, warn the user and request an upgrade
+before judging; if they decline, record "judge < judged" as a confidence
+caveat in the report. For an external judge, use the auditable warning in
+`references/judging.md`; its strength cannot be verified.
 **Gate:** every question has a verdict object with dimensions, score 0–5,
 `unanchored`, improvement comment, and the three critical booleans.
 

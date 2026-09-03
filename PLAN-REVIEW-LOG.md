@@ -407,3 +407,123 @@ brief; moved to its own paragraph. One self-inflicted: a `git checkout --` meant
 to undo a mutation ran from the wrong directory and reverted `loop.py` to
 `HEAD`; reconstructed verbatim from the reviewed diff, both proofs green again,
 and the mutation pass above ran against the reconstruction.
+
+
+## Act 3 — Build 2.0.0 (Tramo 3, items 15–23: optional external judge)
+
+Spec frozen by Claude at `/tmp/SPEC-2.0.0.md` (246 lines) on top of PLAN.md
+items 15–23. The plan names five `judge_cmd` placeholders but never fixes the
+shape of two of them, so the spec locks four decisions before launch:
+`{prompt}` is a file `loop.py` writes at `<iter>/raw/judge-prompt.md` carrying
+instructions and paths but no answer text; `{out}` is one JSON object
+`{verdicts, cross_analysis}` that `loop.py` parses before publishing either
+file; egress consent stays prose plus an audit record, because PLAN.md's own
+Risks section says `authorization.json` is not an enforcement mechanism, and
+the loop-side enforcement in scope is the drift stop of item 19; and
+`grade["judge"]` becomes a dict in every mode, including the in-session
+default — the breaking change that earns the major version.
+
+### Round 1 — Codex build
+
+`gpt-5.6-sol` / `reasoning_effort=high`, `--yolo`, thread
+`01a0645b-258d-7000-8328-3e6632f9135c`. 13 files, `+633/−83`. Declared
+deviations: none — one found, below.
+
+The external judge is an `if` next to `probe()` with no new module, as item 17
+requires. Four pure helpers above the side-effect divider (`judge_fingerprint`,
+`judge_command`, `judge_drift`, `judge_prompt_text`), placeholder validation in
+`validate_config`, `os.replace` publication only after the parsed object
+validates, and the drift check placed BEFORE the verdicts-exist branch, so an
+interrupted run cannot consume judgment files written by a different judge.
+
+### Claude's verdict — round 1
+
+Diff read in full, both proofs run by Claude. Three defects sent back:
+
+1. **The documented flow was not executable.** `judge_prompt_text` told the
+   judge to *write* `{out}`, but all three commands published in `judging.md`
+   capture the judge's *output* into `{out}`, and the Codex one runs
+   `-s read-only`, so that judge cannot write a file at all. Same class as
+   dogfood finding 3: it does not fail, it just cannot be followed.
+2. **The stderr redaction missed the case it exists for.** It replaced the
+   template, but what reaches a shell's stderr is the expanded command, so a
+   token inlined in `judge_cmd` leaked verbatim to stdout. The accompanying
+   test only proved the easy half — its fake judge echoed the un-expanded
+   template.
+3. Renumbering the loop SKILL's step list left item `10.`'s continuation lines
+   at a 3-space indent.
+
+All three fixed in round 2 (same session). Codex confirmed the strengthened
+redaction test fails against the old code before it passes against the new.
+
+### Claude's verdict — round 2, and Claude-side changes
+
+Both proofs green. Fourteen mutations run; three survivors, all acted on:
+
+- **Two were badly aimed mutations of mine**, re-run correctly and killed:
+  publishing the judge output before validating it, and the exact-expanded-form
+  redaction (the strengthened test only echoed the argv join, so the fake judge
+  now writes both that and `shlex.join(sys.argv)`; the two forms differ because
+  the judge's own path contains a space and an apostrophe).
+- **One was a real crash.** `" ".join(shlex.split(command))` raises
+  `ValueError` on a `judge_cmd` with an unbalanced quote — a command the shell
+  also rejects, so the failure path is exactly where it lands. `loop.py`'s
+  contract is that every error path prints a status object; this one printed a
+  traceback instead. Guarded, with a test that reproduces the traceback before
+  the guard.
+- **One line deleted.** The redaction of the raw template survived mutation
+  because it is unreachable: the shell never sees an unsubstituted placeholder,
+  so that string cannot appear in a child's stderr. Removed; the two expanded
+  forms are both tested.
+
+### Second review pass — three more defects
+
+Asked whether anything was left to patch, so the judging path got read again
+rather than trusted. The first two are the drift check; the third is the
+publication order. All three were reproduced before being called findings.
+
+1. **The drift stop was bypassable by deleting `judge_cmd`.** The check sat
+   inside `if cfg.get("judge_cmd"):`, so a run graded by an external judge in
+   iteration 1 and then stripped of its command judged iteration 2 in-session
+   and appended it to the same `history.json` — two judges, one trajectory, no
+   signal. That is the failure the plan's own key-decisions section calls the
+   expensive one: it does not break, it lies. Item 19 already covers it in
+   words ("el sha del `judge_cmd` actual"), which is null when the key is gone.
+   Hoisted out of the guard; `judge_drift` already tolerated both a null
+   fingerprint and a pre-2.0 string `judge`, so the helper did not change.
+2. **Drift was detected after probing.** Item 19 says "antes de juzgar", which
+   the old placement satisfied literally while still paying for a full pack of
+   service answers before stopping. Moved ahead of the selection and probe,
+   where history and config are both already known. The plan accepts paying for
+   answers on a judge timeout — those are already captured in `pack.jsonl` —
+   but there is nothing to salvage in a drift stop.
+
+Both are covered by tests that fail against the previous placement (a probe
+command that leaves a marker file proves the pack is never bought), and both
+mutations die: re-gating on `judge_cmd`, and moving the check back after the
+probe. A third mutation confirms drift does not fire when the judge never
+changed. `compute_grade` now reuses the fingerprint computed for the check
+instead of recomputing it.
+
+3. **Publish-then-validate.** An external judgment that parses but breaks the
+   rubric contract (ids outside the pack, a score that is not its dimension
+   sum) was published before `compute_grade` rejected it, so the next
+   invocation saw verdict files and never re-invoked the judge. Reproduced: two
+   runs, one judge invocation, `invalid_judgment` both times. Item 18's atomic
+   rename covers malformed output; "basura que la siguiente invocacion confunde
+   con trabajo hecho" is that item's own stated purpose, and this was exactly
+   that. Closed after the human asked what was worth doing: the judgment stays
+   in memory, `compute_grade` grades it, and the two files are written only
+   once the validation gate passes. `compute_grade` and the gate are unchanged
+   — the first cost estimate ("restructures the shared grading path") was wrong
+   and was corrected before the decision, not after. Three mutations die:
+   publishing before the gate, never publishing an accepted judgment, and
+   grading the files instead of the validated object. The raw judge output
+   stays in `<iter>/raw/judge-out.json`, so nothing is lost for debugging.
+
+Declared deviation Codex did not report: `anchors_path` changed from
+`if cfg.get("anchors") and anchors` to `… and anchors is not None`. With an
+empty anchors snapshot (`{}`) the no-`judge_cmd` path now reports the path
+where it used to report `null`. It is needed so `{anchors}` does not fail on an
+empty snapshot, and it is the more coherent of the two behaviors, but the spec
+declared that path unchanged and the build report said "deviations: none".

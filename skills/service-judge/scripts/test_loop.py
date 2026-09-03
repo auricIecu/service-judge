@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import pathlib
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -492,6 +493,275 @@ def authorize(run, root):
                             if key != "mode"},
         "approved_text": "Approved autopilot for this run.",
     })
+
+
+def make_fake_judge(root, mode="valid", secret="PACK-ANSWER-SECRET"):
+    judge = root / "fake judge's executable.py"
+    counter = root / "judge-count.txt"
+    command = " ".join((
+        shlex.quote(str(judge)), "{prompt}", "{pack}", "{rubric}",
+        "{anchors}", "{out}", shlex.quote(str(counter)),
+    ))
+    judge.write_text(f'''#!/usr/bin/env python3
+import json
+import pathlib
+import shlex
+import sys
+
+prompt, pack, rubric, anchors, out, counter = map(pathlib.Path, sys.argv[1:7])
+count = int(counter.read_text()) + 1 if counter.exists() else 1
+counter.write_text(str(count))
+assert {secret!r} not in " ".join(sys.argv)
+assert {secret!r} not in prompt.read_text()
+mode = {mode!r}
+if mode == "invalid":
+    out.write_text("not json")
+    raise SystemExit(0)
+if mode == "nonzero":
+    sys.stderr.write("fake judge failed")
+    raise SystemExit(7)
+if mode == "echo_command":
+    sys.stderr.write(" ".join(sys.argv))
+    sys.stderr.write(shlex.join(sys.argv))
+    raise SystemExit(7)
+if mode == "partial":
+    out.write_text("{{")
+    sys.stderr.write("fake judge died after partial output")
+    raise SystemExit(7)
+if mode == "nonutf8":
+    out.write_bytes(bytes([255]))
+    raise SystemExit(0)
+anchor_rows = json.loads(anchors.read_text())
+verdicts = []
+for line in pack.read_text().splitlines():
+    row = json.loads(line)
+    unanchored = anchor_rows[row["id"]]["anchor"] is None
+    dimensions = {{"tool_choice": 1, "accuracy": 1 if unanchored else 2,
+                   "hallucination_free": 1, "directness": 1}}
+    score = 1 if mode == "wrong_score" else sum(dimensions.values())
+    verdicts.append({{"id": row["id"], "dimensions": dimensions,
+                     "score": score, "unanchored": unanchored,
+                     "improvement_comment": "", "broken_tool": False,
+                     "hallucinated_narrative": False, "false_guardrail": False}})
+text = json.dumps({{"verdicts": verdicts, "cross_analysis": []}})
+out.write_text("```json\\n" + text + "\\n```" if mode == "fenced" else text)
+''', encoding="utf-8")
+    judge.chmod(0o755)
+    return command, counter
+
+
+# external judge helpers and config validation
+check("external judge helpers exist",
+      all(hasattr(loop, name) for name in (
+          "judge_fingerprint", "judge_command", "judge_drift", "judge_prompt_text")))
+plain_fingerprint = loop.judge_fingerprint({"judge": "current"})
+assert plain_fingerprint == {"label": "current", "cmd_sha256": None}
+assert loop.judge_fingerprint({"judge": ""}) == {
+    "label": "current harness", "cmd_sha256": None,
+}
+external_fingerprint = loop.judge_fingerprint(
+    {"judge": "codex/gpt", "judge_cmd": "codex {prompt} {out}"})
+assert external_fingerprint == {
+    "label": "codex/gpt",
+    "cmd_sha256": hashlib.sha256(b"codex {prompt} {out}").hexdigest(),
+}
+assert loop.judge_drift([], external_fingerprint) is None
+assert loop.judge_drift([{"judge": "legacy"}], external_fingerprint) is None
+assert loop.judge_drift([{"judge": external_fingerprint}], external_fingerprint) is None
+assert loop.judge_drift(
+    [{"judge": {"label": "old", "cmd_sha256": "old"}}],
+    external_fingerprint,
+)
+assert "unknown judge_cmd placeholder: {question}" in validate_config(
+    {"schema_version": 2, "goals": GOALS,
+     "judge_cmd": "judge {question} {out}"}, 30)
+assert "judge_cmd must be a non-empty string" in validate_config(
+    {"schema_version": 2, "goals": GOALS, "judge_cmd": ""}, 30)
+assert not validate_config(
+    {"schema_version": 2, "goals": GOALS,
+     "judge_cmd": "printf '{\"ok\": true}' > {out}"}, 30)
+for bad_timeout in (True, 0, -1, 1.5, "900"):
+    assert "judge_timeout must be a positive integer" in validate_config(
+        {"schema_version": 2, "goals": GOALS,
+         "judge_cmd": "judge {out}", "judge_timeout": bad_timeout}, 30)
+
+
+# no judge_cmd preserves the exact needs_judgment handoff
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    run = make_run(root, QS)
+    rc, out, _ = run_main(run)
+    iter_dir = run / "iter-01"
+    expected = {
+        "status": "needs_judgment", "iteration": 1,
+        "full": True, "selected_ids": ["Q1", "Q2"],
+        "pack": str((iter_dir / "raw/pack.jsonl").resolve()),
+        "anchors": str((root / "raw/anchors.snapshot.json").resolve()),
+        "rubric": str(loop.RUBRIC_PATH.resolve()),
+        "write_verdicts": str((iter_dir / "verdicts.json").resolve()),
+        "write_cross_analysis": str((iter_dir / "cross-analysis.json").resolve()),
+    }
+    assert rc == 0 and out == json.dumps(expected) + "\n"
+
+
+# an external judge receives quoted paths, tolerates one JSON fence, and grades now
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d) / "judge run's files"
+    root.mkdir()
+    command, counter = make_fake_judge(root, "fenced")
+    run = make_run(root, QS, {
+        "probe_cmd": "printf PACK-ANSWER-SECRET",
+        "judge": "fake/external", "judge_cmd": command,
+    })
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    grade_text = (run / "iter-01/grade.json").read_text()
+    history_text = (run / "history.json").read_text()
+    fingerprint = {
+        "label": "fake/external",
+        "cmd_sha256": hashlib.sha256(command.encode()).hexdigest(),
+    }
+    assert rc == 0 and msg["status"] == "stopped" and counter.read_text() == "1"
+    assert json.loads(grade_text)["judge"] == fingerprint
+    assert json.loads(history_text)[0]["judge"] == fingerprint
+    assert command not in out and command not in grade_text and command not in history_text
+    assert "PACK-ANSWER-SECRET" not in (run / "iter-01/raw/judge-prompt.md").read_text()
+    assert (run / "iter-01/verdicts.json").exists()
+    assert (run / "iter-01/cross-analysis.json").exists()
+
+
+# a judgment that parses but breaks the rubric contract is never published, so
+# the next invocation re-judges instead of grading the same rejected verdicts
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    command, counter = make_fake_judge(root, "wrong_score")
+    run = make_run(root, QS, {"judge_cmd": command})
+    rc, out, _ = run_main(run)
+    assert rc == 2 and json.loads(out)["status"] == "invalid_judgment"
+    assert not (run / "iter-01/verdicts.json").exists()
+    assert not (run / "iter-01/cross-analysis.json").exists()
+    assert not (run / "history.json").exists() and counter.read_text() == "1"
+    rc, out, _ = run_main(run)
+    assert rc == 2 and json.loads(out)["status"] == "invalid_judgment"
+    assert counter.read_text() == "2"          # the judge is invoked again
+
+
+# invalid output retries exactly once and does not consume the iteration
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    command, counter = make_fake_judge(root, "invalid")
+    run = make_run(root, QS, {"judge_cmd": command})
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    assert rc == 2 and msg["status"] == "judge_failed" and msg["attempts"] == 2
+    assert counter.read_text() == "2" and command not in out
+    assert not (run / "history.json").exists()
+    assert not (run / "iter-01/grade.json").exists()
+    assert not (run / "iter-01/verdicts.json").exists()
+    assert not (run / "iter-01/cross-analysis.json").exists()
+
+
+# non-zero and partial-output failures pause without publishing judgment files
+for failure_mode in ("nonzero", "echo_command", "partial", "nonutf8"):
+    with tempfile.TemporaryDirectory() as d:
+        root = pathlib.Path(d)
+        command, counter = make_fake_judge(root, failure_mode)
+        if failure_mode == "echo_command":
+            command += " --header TOKEN-DEADBEEF"
+        run = make_run(root, QS, {"judge_cmd": command})
+        rc, out, _ = run_main(run)
+        msg = json.loads(out)
+        assert rc == 2 and msg["status"] == "judge_failed"
+        assert msg["attempts"] == 2 and counter.read_text() == "2"
+        assert command not in out and command not in msg["stderr"]
+        assert "TOKEN-DEADBEEF" not in out and "TOKEN-DEADBEEF" not in msg["stderr"]
+        assert not (run / "history.json").exists()
+        assert not (run / "iter-01/verdicts.json").exists()
+        assert not (run / "iter-01/cross-analysis.json").exists()
+
+
+# a malformed judge_cmd still returns a status object instead of a traceback
+with tempfile.TemporaryDirectory() as d:
+    run = make_run(pathlib.Path(d), QS, {"judge_cmd": "echo it's {out}"})
+    rc, out, _ = run_main(run)
+    assert rc == 2 and json.loads(out)["status"] == "judge_failed"
+
+
+# anchors placeholders fail explicitly instead of becoming empty shell arguments
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    command, counter = make_fake_judge(root)
+    run = make_run(root, QS, {"judge_cmd": command})
+    pathlib.Path(json.loads((run / "config.json").read_text())["anchors"]).unlink()
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    assert rc == 2 and msg["status"] == "judge_failed"
+    assert "anchors snapshot" in msg["error"] and not counter.exists()
+
+
+# drift compares with the first grade, not the most recent one
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    current_command, counter = make_fake_judge(root)
+    first_sha = hashlib.sha256(b"first judge {out}").hexdigest()
+    current_sha = hashlib.sha256(current_command.encode()).hexdigest()
+    history = [
+        g(50) | {"judge": {"label": "first", "cmd_sha256": first_sha}},
+        g(50) | {"judge": {"label": "latest", "cmd_sha256": current_sha}},
+    ]
+    run = make_run(root, QS, {"judge_cmd": current_command}, history)
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    assert rc == 2 and msg["status"] == "judge_drift"
+    assert msg["expected_sha256"] == first_sha and msg["actual_sha256"] == current_sha
+    assert not counter.exists() and not (run / "iter-03/grade.json").exists()
+
+
+# deleting judge_cmd mid-run is drift too, and drift never costs a pack
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    probed = root / "probed.txt"
+    external_sha = hashlib.sha256(b"codex exec {prompt} {out}").hexdigest()
+    run = make_run(root, QS, {
+        "probe_cmd": f"printf x >> {shlex.quote(str(probed))}; printf answer",
+    }, [g(50) | {"judge": {"label": "codex/gpt", "cmd_sha256": external_sha}}])
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    assert rc == 2 and msg["status"] == "judge_drift"
+    assert msg["expected_sha256"] == external_sha and msg["actual_sha256"] is None
+    assert not probed.exists()          # detected before spending answers
+
+
+# an in-session run that never had a judge_cmd is not drift
+with tempfile.TemporaryDirectory() as d:
+    run = make_run(pathlib.Path(d), QS, {}, [
+        g(50) | {"judge": {"label": "current harness", "cmd_sha256": None}},
+    ])
+    rc, out, _ = run_main(run)
+    assert rc == 0 and json.loads(out)["status"] == "needs_judgment"
+
+
+# drift is checked before consuming judgment files left from an interrupted run
+with tempfile.TemporaryDirectory() as d:
+    root = pathlib.Path(d)
+    current_command, counter = make_fake_judge(root)
+    first_sha = hashlib.sha256(b"first judge {out}").hexdigest()
+    run = make_run(root, QS, {"judge_cmd": current_command}, [
+        g(50) | {"judge": {"label": "first", "cmd_sha256": first_sha}},
+    ])
+    iter_dir = run / "iter-02"
+    (iter_dir / "raw").mkdir(parents=True)
+    write_json(iter_dir / "selection.json",
+               {"selected_ids": ["Q1", "Q2"], "full": True,
+                "reason": "fixture", "strategy": "full"})
+    write_jsonl(iter_dir / "raw/pack.jsonl",
+                [{"id": q["id"], "mode": q["mode"], "question": q["question"],
+                  "answer": "fixture"} for q in QS])
+    write_json(iter_dir / "verdicts.json", [v("Q1", 5), v("Q2", 5)])
+    write_json(iter_dir / "cross-analysis.json", [])
+    rc, out, _ = run_main(run)
+    msg = json.loads(out)
+    assert rc == 2 and msg["status"] == "judge_drift" and not counter.exists()
 
 
 # filesystem state: selection is authoritative for each iteration

@@ -1,6 +1,6 @@
 {
   "name": "service-judge",
-  "version": "1.7.2",
+  "version": "2.0.0",
   "description": "LLM-as-judge evaluation for AI services: scorecard, grade, and prioritized fixes — plus an autonomous improvement loop.",
   "author": {
     "name": "auricIecu",

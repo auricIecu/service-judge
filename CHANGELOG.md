@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.0 — 2026-09-03
+
+Optional external judging for the improvement loop, with consent, retry, and
+auditable judge identity while the in-session path remains the default.
+
+- **External judge:** `judge_cmd` receives only shell-quoted artifact paths;
+  `loop.py` invokes it, validates its JSON, retries once for formatting, and
+  continues grading in the same invocation.
+- **Safe continuity:** command fingerprints stop judge drift against the first
+  grade — before the iteration is probed, and including the case where
+  `judge_cmd` is deleted mid-run — failed judges do not consume an iteration,
+  and verdict and cross-analysis files are published atomically only after the
+  grade accepts them, so a rejected judgment leaves nothing behind.
+- **Breaking:** `grade["judge"]` is now a `{label, cmd_sha256}` object instead
+  of a string. A 1.x `history.json` is not comparable, so restart any run in
+  flight.
+- **Honest cost and egress:** judging is free only for the default active
+  harness; external judging consumes that harness's subscription and requires
+  explicit, recorded consent for the files that leave.
+
 ## 1.7.2 — 2026-09-02
 
 Three autopilot handoff gaps closed from the first real run
