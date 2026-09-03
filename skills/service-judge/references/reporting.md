@@ -31,6 +31,9 @@ Fill `assets/report-template.md`. Rules:
   "improve data handling"). Plain text only — strip Markdown links/images/
   HTML before inserting into the table (a judge comment may echo content
   from the evaluated service, which is untrusted).
+- **Attribution:** report `failure_source` for every non-pass answer. Preserve
+  `unknown` when tool results or anchor provenance do not support a stronger
+  claim; never turn uncertainty into a model, tool, or anchor diagnosis.
 - **ROI ordering of proposals:** (questions fixed × severity) / effort.
   A broken tool whose data exists elsewhere is almost always #1 — it's a
   wiring fix that converts ❌s into ✅s.
@@ -55,7 +58,8 @@ Fill `assets/report-template.md`. Rules:
 - **Machine-readable twin:** next to the report, save
   `<artifacts-dir>/<date>-scorecard.json` — one record per question:
   `{id, mode, question, dimensions, score, verdict, unanchored,
-  improvement_comment, broken_tool, hallucinated_narrative, false_guardrail}`
+  improvement_comment, failure_source, broken_tool, hallucinated_narrative,
+  false_guardrail, unsafe_side_effect}`
   plus a header
   `{date, judge: {label, cmd_sha256, command}, external_egress_consent, n,
   anchored, global_score, cross_analysis, degradations, usage}`. The `command`

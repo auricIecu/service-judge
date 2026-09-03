@@ -129,7 +129,7 @@ user — hiding it is the loop's job, not this one.
   the user non-obvious session IDs and cross-check a few questions against
   unmarked requests.
 - Probe the canary first (see §Canary gate below), not the whole set.
-- Record per question: `{id, mode, question, answer, tools_called, model,
+- Record per question: `{id, mode, question, answer, tools_called, tool_results, model,
   latency_ms, error}` — one JSON object per line (the "pack"). When the
   service's response, its logs, or observability expose usage, also record
   `{model_generations, input_tokens, cached_input_tokens, output_tokens}`.
@@ -137,7 +137,9 @@ user — hiding it is the loop's job, not this one.
   question (tool loops make it >1) — it is what makes an eval expensive, so
   capture it whenever it's available and say so in the report when it isn't.
   Record `tools_called: []` when no tool ran; reserve `null` for unavailable
-  telemetry. Never turn unavailable evidence into an empty trace.
+  telemetry. Record `tool_results` as the non-null, non-empty JSON value exposed
+  by responses, logs, or observability; otherwise omit it. Never turn
+  unavailable evidence into an empty trace.
 - The pack `id` IS the canonical question key `Q<NN>` (e.g. `Q07`): the same
   key used in `anchors.snapshot.json`, in the scorecard's `#` column, and as the suffix
   of the probe session ID (`eval-<date>-Q<NN>`).

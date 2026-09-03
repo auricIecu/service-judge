@@ -81,7 +81,9 @@ def scenario(tmp, unanchored_dimensions, cfg_extra=None):
                          "score": sum(dimensions.values()),
                          "unanchored": unanchored, "improvement_comment": "",
                          "broken_tool": False, "hallucinated_narrative": False,
-                         "false_guardrail": False})
+                         "false_guardrail": False, "unsafe_side_effect": False,
+                         "failure_source": (
+                             "none" if sum(dimensions.values()) >= 4 else "model")})
     (run / "iter-01/verdicts.json").write_text(json.dumps(verdicts))
     (run / "iter-01/cross-analysis.json").write_text("[]")
 

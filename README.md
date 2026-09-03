@@ -10,7 +10,7 @@
 1. **Discovers** your repo, database, and observability (read-only, always).
 2. **Sizes** the eval with you — canary (10–12) / diagnostic (30) / release (50–100), each with its honest statistical confidence.
 3. **Generates & probes**: a cheap model writes realistic questions (including trap cases) and fires them at your live service, while ground-truth anchors are extracted from your DB through paths that never touch your LLM. The canary is probed and judged first, and the run aborts there on a leak, a bypassed guardrail, or a severely wrong figure — a decisive finding for the price of 12 answers.
-4. **Judges** every answer with the active harness by default, or an optional external Codex, Claude Code, or DeepSeek harness: rubric scoring plus cross-answer hunting for contradictions, broken tools, and hallucinated narratives.
+4. **Judges** every answer with the active harness by default, or an optional external Codex, Claude Code, or DeepSeek harness: rubric scoring plus causal attribution across model, tool, anchor, or missing evidence, with unsafe side effects as a hard gate.
 5. **Reports**: per-question scorecard, global grade, and improvement proposals ordered by ROI. Then it gets out of your way.
 
 Born from a real eval that caught broken tools, placeholder data narrated as a business collapse, and guardrails firing on legitimate questions — none of which assert-based tests had seen.

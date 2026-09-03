@@ -52,9 +52,9 @@ behavior.
 For cheaper development iterations, opt in to `"probe_strategy": "adaptive"`.
 Adaptive still starts with a full baseline and can only satisfy the quality
 gates on a full run. Between those full runs it probes a dev-only focused pack:
-dev failures, all-dev cross-analysis groups from the last full grade, dev
-questions with the same `(mode, type)` as a failure, and a deterministic
-regression sample. It reserves one full golden-set run inside `answer_budget`,
+dev failures or critical findings, all-dev cross-analysis groups from the last
+full grade, dev questions with the same `(mode, type)` as a failure, and a
+deterministic regression sample. It reserves one full golden-set run inside `answer_budget`,
 forces the last permitted iteration to full, and falls back to full whenever
 the focused pack is not worth or cannot fit the remaining budget.
 
@@ -231,13 +231,17 @@ delete before retrying.
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
    `probe_cmd` may print plain answer text, or one JSON object with a string
-   `answer`, a `tools_called` field, and any exposed `model`, `latency_ms`,
+   `answer`, a `tools_called` field, and any exposed `tool_results`, `model`,
+   `latency_ms`,
    `error`, `model_generations`, `input_tokens`, `cached_input_tokens`, or
    `output_tokens`.
    The loop keeps only those fields and always takes `id`, `mode`, and
    `question` from the golden set. Use `tools_called: []` when no tool ran and
    `tools_called: null` only when telemetry is unavailable. Plain text remains
-   supported and records `tools_called: null`.
+   supported and records `tools_called: null`. Preserve any non-null, non-empty
+   JSON shape exposed as `tool_results`; omit it when the service cannot expose
+   results. The judge then uses `failure_source: unknown` for defects whose
+   cause crosses that missing boundary.
 
    Point `probe_cmd` at staging, not production. `anchors` points to the
    machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set
@@ -284,6 +288,11 @@ delete before retrying.
    `compute_grade` accepts them, so re-running re-invokes the judge instead of
    re-grading the same rejected verdicts. The raw output stays in
    `<iter>/raw/judge-out.json` for inspection.
+
+   Verdict files created by 2.0.1 do not contain `failure_source` or
+   `unsafe_side_effect` and therefore return `invalid_judgment`. Archive or
+   remove only `verdicts.json` and `cross-analysis.json`, then rerun to judge
+   the existing `raw/pack.jsonl`; never re-probe for this schema upgrade.
 6. **Autopilot preflight and branch.** Manual mode skips this step. Before
    copying a baseline or probing in autopilot, run
    `python3 <scripts-dir>/loop.py --run .service-judge/run-<id>/ --plan`.
@@ -331,8 +340,9 @@ delete before retrying.
 ## Autopilot fix cycle
 
 On `needs_fix`, `loop.py` writes `iter-NN/fix-brief.json` from validated
-verdicts. It contains only failing dev scores/comments, dev-only regressions,
-all-dev cross-analysis groups, aggregate holdout percent/gap, and gate results.
+verdicts. It contains only failing or critical dev scores/comments with causal
+source and critical flags, dev-only regressions, all-dev cross-analysis groups,
+aggregate holdout percent/gap, and gate results.
 Mixed dev/holdout groups and every holdout id/comment are absent at the source.
 It also carries `repo` and `allowed_actions`, copied from `authorization.json`:
 the fixer is the only participant that touches the machine, so the authorized

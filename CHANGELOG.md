@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Breaking for in-flight judgments:** verdict files written by 2.0.1 lack
+  the two new required fields. Re-judge the saved pack after upgrading; do not
+  re-probe the service.
+- **Causal verdicts:** every judgment attributes the primary defect to the
+  model, tool, anchor, or unknown evidence instead of treating every
+  answer/anchor mismatch as hallucination.
+- **Side-effect hard gate:** mutating or externally visible tool calls made
+  without required data or authorization now fail certification explicitly.
+- **Tool-result evidence:** structured probes preserve optional `tool_results`
+  so judges can distinguish wrong model behavior from wrong tool output.
+
 ## 2.0.1 — 2026-09-03
 
 External tool-choice judgments now keep the evidence needed to support them.

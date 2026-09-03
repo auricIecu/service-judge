@@ -92,8 +92,8 @@ For an in-session judge or subagent, load it and pass its FULL text inline
 (do not paraphrase, so the rubric always travels with the call). An external
 judge reads the rubric from the path in `{prompt}`.
 Each verdict must include the required `dimensions`, `score`, `unanchored`,
-`improvement_comment`, and critical booleans. Do not write `verdict`; the loop
-derives pass/warn/fail from `score`.
+`improvement_comment`, `failure_source`, and critical booleans. Do not write
+`verdict`; the loop derives pass/warn/fail from `score`.
 
 ## What to hunt beyond the rubric (the judge's real value)
 
@@ -102,8 +102,8 @@ After scoring individual answers, do a CROSS-ANSWER pass:
    April–June had no sales. Both scored fine alone; together they reveal a
    bug. The contradiction-bait pairs from Phase 3 land here.
 2. **"Technical error" replies where the anchor shows the data EXISTS** —
-   that is a broken tool, not missing data. Flag as tool bug (these are
-   usually the highest-ROI fixes).
+   if the captured tool result contains the failure, that is a broken tool,
+   not missing data. Without a captured result, attribute it as unknown.
 3. **Narrative over artifacts** — placeholder/empty periods narrated as real
    business events ("Q2 collapse"). The most dangerous hallucination class.
 4. **Guardrails firing falsely** — error fallbacks answering legitimate
@@ -113,11 +113,12 @@ After scoring individual answers, do a CROSS-ANSWER pass:
 
 Persist critical cross-answer findings as an array of
 `{type, ids, comment}` objects. `type` is one of `contradiction`,
-`broken_tool`, `hallucinated_narrative`, `false_guardrail`, or
-`arithmetic_inconsistency`. Use canonical question IDs in `ids`; an empty
+`broken_tool`, `hallucinated_narrative`, `false_guardrail`,
+or `arithmetic_inconsistency`. Use canonical question IDs in `ids`; an empty
 array means no cross-answer defect. The loop stores this in
 `cross-analysis.json` and `grade.json`; any finding fails the hard gate
-without changing the cold per-answer scores.
+without changing the cold per-answer scores. A `broken_tool` finding requires
+captured, non-empty `tool_results` for every cited ID.
 
 ## Anti-bias rules
 

@@ -173,7 +173,8 @@ before judging; if they decline, record "judge < judged" as a confidence
 caveat in the report. For an external judge, use the auditable warning in
 `references/judging.md`; its strength cannot be verified.
 **Gate:** every question has a verdict object with dimensions, score 0–5,
-`unanchored`, improvement comment, and the three critical booleans.
+`unanchored`, improvement comment, causal `failure_source`, and the four
+critical booleans.
 
 ## Phase 5 — Report & exit
 

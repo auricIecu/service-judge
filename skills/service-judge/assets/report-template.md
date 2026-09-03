@@ -55,9 +55,9 @@
 
 ## Scorecard
 
-| Q# | Mode | Question | Verdict | Improvement comment |
-|---|---|---|---|---|
-| Q01 | <mode> | <question, truncated ~80 chars> | ✅/⚠️/❌ <score>/5 | <one actionable sentence> |
+| Q# | Mode | Question | Verdict | Source | Improvement comment |
+|---|---|---|---|---|---|
+| Q01 | <mode> | <question, truncated ~80 chars> | ✅/⚠️/❌ <score>/5 | <none|model|tool|anchor|unknown> | <one actionable sentence> |
 
 ## Cross-answer findings
 

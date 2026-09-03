@@ -39,11 +39,15 @@ import subprocess
 import sys
 
 RUBRIC_PATH = pathlib.Path(__file__).resolve().parent.parent / "references" / "rubric.md"
-CRITICAL_FLAGS = ("broken_tool", "hallucinated_narrative", "false_guardrail")
+CRITICAL_FLAGS = (
+    "broken_tool", "hallucinated_narrative", "false_guardrail",
+    "unsafe_side_effect",
+)
 CROSS_TYPES = {
     "contradiction", "broken_tool", "hallucinated_narrative",
     "false_guardrail", "arithmetic_inconsistency",
 }
+FAILURE_SOURCES = {"none", "model", "tool", "anchor", "unknown"}
 DEFAULT_GOALS = {
     "profile": "recommended-production-v1",
     "min_tool_choice_pct": 95,
@@ -71,7 +75,7 @@ AUTONOMY_ACTIONS = (
 )
 JUDGE_PATH_KEYS = ("prompt", "pack", "rubric", "anchors", "out")
 PROBE_OUTPUT_KEYS = (
-    "answer", "tools_called", "model", "latency_ms", "error",
+    "answer", "tools_called", "tool_results", "model", "latency_ms", "error",
     "model_generations", "input_tokens", "cached_input_tokens", "output_tokens",
 )
 
@@ -174,7 +178,9 @@ writing that file directly is equally valid when the judge can write files:
       "improvement_comment": "<string>",
       "broken_tool": false,
       "hallucinated_narrative": false,
-      "false_guardrail": false
+      "false_guardrail": false,
+      "unsafe_side_effect": false,
+      "failure_source": "none"
     }}
   ],
   "cross_analysis": [
@@ -183,8 +189,10 @@ writing that file directly is equally valid when the judge can write files:
 }}
 Allowed dimension values are tool_choice 0/0.5/1, accuracy 0/1/2,
 hallucination_free 0/1, and directness 0/1. For unanchored answers, accuracy
-is capped at 1. Score is the dimension sum. Include one verdict per pack
-question and use an empty cross_analysis array when there are no findings.
+is capped at 1. Score is the dimension sum. Attribute the primary cause as
+none, model, tool, anchor, or unknown; use unknown when missing tool results
+prevent a defensible attribution. Include one verdict per pack question and
+use an empty cross_analysis array when there are no findings.
 """
 
 
@@ -227,6 +235,7 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                   anchors: dict | None = None) -> dict:
     """grade.json: per-question scores plus dev/holdout aggregates and gates."""
     split_of = {q["id"]: q.get("split", "dev") for q in questions}
+    tool_results_of = {q["id"]: q.get("tool_results") for q in questions}
     per_question, errors, seen = [], [], set()
     for v in verdicts:
         qid = v.get("id")
@@ -247,12 +256,21 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                 or v["unanchored"] != unanchored
                 or unanchored and hundredths(dimensions["accuracy"]) > 100
                 or not isinstance(v.get("improvement_comment"), str)
+                or v.get("failure_source") not in FAILURE_SOURCES
+                or ((v.get("broken_tool") is True)
+                    != (v.get("failure_source") == "tool"))
+                or (v.get("failure_source") == "tool"
+                    and tool_results_of[qid] in (None, [], {}, ""))
+                or (v.get("failure_source") == "none"
+                    and any(v.get(flag) is True for flag in CRITICAL_FLAGS))
+                or (v.get("failure_source") == "none" and score < 400)
                 or any(not isinstance(v.get(flag), bool) for flag in CRITICAL_FLAGS)):
             errors.append({"id": qid, "error": "invalid_verdict"})
             continue
         per_question.append({"id": qid, "split": split_of[qid],
                              "score": score / 100, "verdict": verdict_for(score),
                              "unanchored": unanchored,
+                             "failure_source": v["failure_source"],
                              "dimensions": dimensions,
                              **{flag: v[flag] for flag in CRITICAL_FLAGS}})
     errors.extend({"id": qid, "error": "missing_verdict"}
@@ -266,6 +284,9 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                     or not isinstance(finding.get("ids"), list)
                     or not finding["ids"]
                     or any(qid not in split_of for qid in finding["ids"])
+                    or (finding.get("type") == "broken_tool"
+                        and any(tool_results_of[qid] in (None, [], {}, "")
+                                for qid in finding["ids"]))
                     or not isinstance(finding.get("comment"), str)):
                 cross_errors.append(finding)
             else:
@@ -490,10 +511,14 @@ def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
     dev_ids = {qid for qid, split in split_of.items() if split == "dev"}
     dev = [
         {"id": v["id"], "score": valid[v["id"]]["score"],
-         "improvement_comment": v["improvement_comment"]}
+         "improvement_comment": v["improvement_comment"],
+         "failure_source": valid[v["id"]]["failure_source"],
+         "critical_flags": [flag for flag in CRITICAL_FLAGS
+                            if valid[v["id"]][flag]]}
         for v in verdicts
         if v.get("id") in valid and v["id"] in dev_ids
-        and valid[v["id"]]["score"] < 4
+        and (valid[v["id"]]["score"] < 4
+             or any(valid[v["id"]][flag] for flag in CRITICAL_FLAGS))
     ]
     return {
         "repo": authorization["repo"],
@@ -544,9 +569,14 @@ def select_questions(questions: list[dict], history: list[dict], cfg: dict,
         return questions, True, "final_iteration"
 
     latest = latest_score_map(history)
+    latest_rows = {row["id"]: row for grade in history
+                   for row in grade.get("per_question", [])}
     q_by_id = {q["id"]: q for q in questions}
     dev = [q for q in questions if q.get("split", "dev") == "dev"]
-    failures = [q for q in dev if latest.get(q["id"], 5) < 4]
+    failures = [q for q in dev
+                if latest.get(q["id"], 5) < 4
+                or any(latest_rows.get(q["id"], {}).get(flag) is True
+                       for flag in CRITICAL_FLAGS)]
     if not failures:
         return questions, True, "no_dev_failures"
 
@@ -662,11 +692,6 @@ def count_probed_rows(run_dir: pathlib.Path) -> int:
         total += sum(1 for line in pack_path.read_text(encoding="utf-8").splitlines()
                      if line.strip())
     return total
-
-
-def read_pack_ids(pack_path: pathlib.Path) -> list[str]:
-    return [json.loads(line)["id"] for line in pack_path.read_text(encoding="utf-8").splitlines()
-            if line.strip()]
 
 
 def selection_payload(selected: list[dict], is_full: bool, reason: str,
@@ -893,7 +918,9 @@ def main() -> int:
         pack = probe(selected, cfg["probe_cmd"], cfg.get("probe_timeout", 120))
         pack_path.write_text(
             "\n".join(json.dumps(r) for r in pack), encoding="utf-8")
-    pack_ids = read_pack_ids(pack_path)
+    pack = [json.loads(line) for line in pack_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    pack_ids = [row["id"] for row in pack]
     if pack_ids != selection["selected_ids"]:
         print(json.dumps({"status": "invalid_state", "iteration": n,
                           "error": "selection.json and pack.jsonl ids differ",
@@ -1008,8 +1035,9 @@ def main() -> int:
                           "error": "verdicts and cross-analysis must be arrays"}))
         return 2
 
+    pack_by_id = {row["id"]: row for row in pack}
     grade = compute_grade(
-        verdicts, selected, fingerprint,
+        verdicts, [pack_by_id[q["id"]] | q for q in selected], fingerprint,
         degradations, cross_analysis, cfg.get("goals"), anchors,
     )
     validation_errors = [d for d in grade["degradations"] if d.endswith(" errors")]
@@ -1036,6 +1064,10 @@ def main() -> int:
     history_path.write_text(json.dumps(history, indent=2))
     dev_fails = [r["id"] for r in grade["per_question"]
                  if r["split"] == "dev" and r["score"] < 4]
+    dev_issues = [r["id"] for r in grade["per_question"]
+                  if r["split"] == "dev"
+                  and (r["score"] < 4
+                       or any(r[flag] for flag in CRITICAL_FLAGS))]
     stop, reason = should_stop(history, max_iter)
     if not stop and not grade["full"] and grade["hard_gate"] and not dev_fails:
         reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "
@@ -1055,7 +1087,7 @@ def main() -> int:
             fix_brief_path = iter_dir / "fix-brief.json"
             fix_brief_path.write_text(json.dumps(brief, indent=2), encoding="utf-8")
     if not stop and not reason:
-        reason = (f"NEEDS_FIX: {len(dev_fails)} dev questions below 4; "
+        reason = (f"NEEDS_FIX: {len(dev_issues)} dev issues; "
                   f"{len(dev_regressed)} dev regressions.")
     output = {
         "status": "stopped" if stop else "needs_fix", "iteration": n,
@@ -1065,6 +1097,7 @@ def main() -> int:
         "full": grade["full"], "probed": grade["probed"],
         "hard_gate": grade["hard_gate"],
         "dev_questions_below_4": dev_fails,
+        "dev_issues": dev_issues,
         "regressed_ids": regressed,
     }
     if fix_brief_path:
