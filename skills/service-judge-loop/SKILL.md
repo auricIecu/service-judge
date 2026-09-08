@@ -334,6 +334,10 @@ delete before retrying.
     mode, wait for the human fix and repeat from step 8.
     Between iterations, show the user the dev detail but ONLY the aggregate
     and gap for holdout (D4 — holdout questions must not leak into fixes).
+    The stdout payload is already dev-only: `dev_questions_below_4` (score
+    under 4), `dev_issues` (score under 4 or any critical flag), and
+    `regressed_ids` (passing at the last measurement, not now); holdout appears
+    only as `holdout` percent.
 11. **When it stops,** report why (goals / regression / stagnation / limit),
     the grade trajectory from `history.json`, and what to fix next. Acting on
     fixes is the human's move in manual mode; the loop itself always only

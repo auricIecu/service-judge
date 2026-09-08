@@ -93,7 +93,10 @@ For an in-session judge or subagent, load it and pass its FULL text inline
 judge reads the rubric from the path in `{prompt}`.
 Each verdict must include the required `dimensions`, `score`, `unanchored`,
 `improvement_comment`, `failure_source`, and critical booleans. Do not write
-`verdict`; the loop derives pass/warn/fail from `score`.
+`verdict`; the loop derives pass/warn/fail from `score`. Read `tool_results`
+from the pack row when present: it is the evidence that separates `tool` from
+`model`, and its presence decides whether `broken_tool` is attributed `tool`
+or `unknown`.
 
 ## What to hunt beyond the rubric (the judge's real value)
 

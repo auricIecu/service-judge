@@ -2,6 +2,11 @@
 
 _Locked via grill — by Claude + auricIecu_
 
+> Registro histórico. El contrato de verdict descrito aquí (tres flags
+> críticos) fue ampliado después con `unsafe_side_effect` y `failure_source`;
+> la fuente vigente es `skills/service-judge/references/rubric.md` y el
+> CHANGELOG. No se edita el cuerpo para conservar la decisión tal como se tomó.
+
 ## Goal
 
 `service-judge` mide bien pero certifica mal y solo puede medir. Tres huecos concretos:
