@@ -27,6 +27,9 @@
   fix brief. Stagnation requires both <2pp improvement and no fewer hard
   failures for two consecutive full runs; clearing a hard gate flag at a flat
   score counts as progress.
+- **Dev-only stdout:** `regressed_ids` in the loop's stdout now lists dev ids
+  only, matching `dev_issues` and the fix brief; holdout regressions remain
+  visible through the aggregate.
 
 ## 2.0.1 — 2026-09-03
 

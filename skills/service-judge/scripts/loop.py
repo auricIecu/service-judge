@@ -1125,7 +1125,7 @@ def main() -> int:
         "hard_gate": grade["hard_gate"],
         "dev_questions_below_4": dev_fails,
         "dev_issues": dev_issues,
-        "regressed_ids": regressed,
+        "regressed_ids": dev_regressed,
     }
     if fix_brief_path:
         output["fix_brief"] = str(fix_brief_path.resolve())

@@ -47,7 +47,7 @@
 
 | | |
 |---|---|
-| Judge | <label> — <free on active harness|uses external harness subscription> |
+| Judge | <label> — <free on active harness / uses external harness subscription> |
 | Answers requested | <N> (<canary N> canary + <rest>) · <"fresh probe" or "re-judged from pack <ref>"> |
 | Model generations | <G> (<G/N> per question) |
 | Tokens (in / cached / out) | <i> / <c> / <o> <!-- or: not captured — service does not expose usage --> |
@@ -57,7 +57,7 @@
 
 | Q# | Mode | Question | Verdict | Source | Improvement comment |
 |---|---|---|---|---|---|
-| Q01 | <mode> | <question, truncated ~80 chars> | ✅/⚠️/❌ <score>/5 | <none|model|tool|anchor|unknown> | <one actionable sentence> |
+| Q01 | <mode> | <question, truncated ~80 chars> | ✅/⚠️/❌ <score>/5 | <none / model / tool / anchor / unknown> | <one actionable sentence> |
 
 ## Cross-answer findings
 

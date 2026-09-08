@@ -1227,9 +1227,11 @@ with tempfile.TemporaryDirectory() as d:
               and "1 dev issue" in msg["reason"]
               and "1 dev regressions" in msg["reason"]
               and msg["dev_issues"] == ["Q1"]
-              and "Q1" in msg["regressed_ids"]
+              and msg["regressed_ids"] == ["Q1"]
               and saved["regressed_ids"] == ["Q1"]
               and "Q2" not in msg["reason"])
+        check("stdout never lists holdout ids, even when holdout regressed",
+              "Q2" not in json.dumps(msg))
         check("the run keeps a raw/ directory for the anchors snapshot",
               (run / "raw").is_dir())
     finally:
