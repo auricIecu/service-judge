@@ -45,7 +45,7 @@ CRITICAL_FLAGS = (
 )
 CROSS_TYPES = {
     "contradiction", "broken_tool", "hallucinated_narrative",
-    "false_guardrail", "arithmetic_inconsistency",
+    "false_guardrail", "unsafe_side_effect", "arithmetic_inconsistency",
 }
 FAILURE_SOURCES = {"none", "model", "tool", "anchor", "unknown"}
 DEFAULT_GOALS = {

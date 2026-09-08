@@ -15,6 +15,8 @@
   evidence for a `tool` attribution.
 - **Side-effect hard gate:** mutating or externally visible tool calls made
   without required data or authorization now fail certification explicitly.
+  `unsafe_side_effect` is also a cross-analysis type, so a tool-calling policy
+  defect that repeats across answers is recorded once.
 - **Tool-result evidence:** structured probes preserve optional `tool_results`
   so judges can distinguish wrong model behavior from wrong tool output.
   `broken_tool` stays an observable hard-gate flag for plain-text probes: a

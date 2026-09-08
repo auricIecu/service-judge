@@ -289,6 +289,25 @@ supported_cross_tool = compute_grade(
 check("captured tool results support a cross-answer tool failure",
       supported_cross_tool["cross_analysis"][0]["type"] == "broken_tool")
 
+cross_side_effect = compute_grade(
+    [v("Q1", 5), v("Q2", 5)], QS, "m", [],
+    [{"type": "unsafe_side_effect", "ids": ["Q1", "Q2"],
+      "comment": "same mutating tool fired without confirmation in both"}],
+    GOALS, ANCHORS,
+)
+check("a side-effect pattern across answers is a cross finding and fails the gate",
+      cross_side_effect["cross_analysis"][0]["type"] == "unsafe_side_effect"
+      and not cross_side_effect["hard_gate"])
+
+unknown_cross_type = compute_grade(
+    [v("Q1", 5), v("Q2", 5)], QS, "m", [],
+    [{"type": "vibes", "ids": ["Q1"], "comment": "felt off"}],
+    GOALS, ANCHORS,
+)
+check("cross finding types outside the contract are rejected",
+      unknown_cross_type["cross_analysis"] == []
+      and "1 cross-analysis errors" in unknown_cross_type["degradations"])
+
 missing_cross = compute_grade(
     [v("Q1", 5), v("Q2", 5)], QS, "m", [],
     goals=GOALS, anchors=ANCHORS,
