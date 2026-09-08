@@ -37,8 +37,9 @@ for the next fix. Manual mode waits for a human; autopilot writes a redacted
 `fix-brief.json` and follows the authorized cycle below.
 
 It stops on hard gate plus configured goals passed, regression (it notifies — never reverts),
-stagnation (<2pp improvement twice in a row), the iteration limit, or an
-autopilot full run with nothing actionable left for the fixer. LLM usage
+stagnation (<2pp improvement and no fewer hard failures twice in a row), the
+iteration limit, or an autopilot full run with nothing actionable left for the
+fixer. LLM usage
 consumes the active harness subscription/session limits by default; an external
 judge consumes that other harness's subscription. No API key is read and no
 model API is called directly by the plugin.
@@ -342,7 +343,10 @@ delete before retrying.
 On `needs_fix`, `loop.py` writes `iter-NN/fix-brief.json` from validated
 verdicts. It contains only failing or critical dev scores/comments with causal
 source and critical flags, dev-only regressions, all-dev cross-analysis groups,
-aggregate holdout percent/gap, and gate results.
+aggregate holdout percent/gap, and gate results. A question regresses when it
+was passing at its last measurement — score at least 4 with every critical
+flag false — and no longer is, so a fix that keeps a 5/5 but introduces an
+unsafe side effect is a regression.
 Mixed dev/holdout groups and every holdout id/comment are absent at the source.
 It also carries `repo` and `allowed_actions`, copied from `authorization.json`:
 the fixer is the only participant that touches the machine, so the authorized

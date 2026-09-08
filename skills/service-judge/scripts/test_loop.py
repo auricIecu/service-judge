@@ -463,6 +463,20 @@ assert should_stop([g(50, hard=True, goals_met=True)], 5)[0]     # gates passed
 assert should_stop([g(60), g(55)], 5)[1].startswith("REGRESSION")
 assert should_stop([g(60), g(61), g(61.5)], 5)[1].startswith("STAGNATION")
 assert not should_stop([g(60), g(65), g(70)], 5)[0]              # improving
+flagged = lambda pct, ids: g(pct) | {"hard_failures": [
+    {"id": qid, "flags": ["unsafe_side_effect"]} for qid in ids]}
+check("fewer hard failures at a flat score is progress, not stagnation",
+      not should_stop([flagged(90, ["Q1", "Q2"]), flagged(90, ["Q1"]),
+                       flagged(90, [])], 5)[0])
+check("a flat score with the same hard failures is stagnation",
+      should_stop([flagged(90, ["Q1"]), flagged(90, ["Q1"]),
+                   flagged(90, ["Q1"])], 5)[1].startswith("STAGNATION"))
+check("a flat score that trades one hard failure for another is stagnation",
+      should_stop([flagged(90, ["Q1"]), flagged(90, ["Q2"]),
+                   flagged(90, ["Q3"])], 5)[1].startswith("STAGNATION"))
+check("one step of fewer hard failures resets the stagnation window",
+      not should_stop([flagged(90, ["Q1"]), flagged(90, ["Q1"]),
+                       flagged(90, [])], 5)[0])
 assert should_stop([g(60), g(65)], 2)[1].startswith("MAX_ITERATIONS")
 assert not should_stop([g(60)], 5)[0]                            # keep going
 assert not should_stop([g(60), g(100, hard=True, goals_met=True, full=False)], 5)[0]
@@ -1144,8 +1158,10 @@ with tempfile.TemporaryDirectory() as d:
         check("needs_fix reports critical dev issues even at a passing score",
               msg["reason"].startswith("NEEDS_FIX:")
               and "1 dev issue" in msg["reason"]
-              and "0 dev regressions" in msg["reason"]
+              and "1 dev regressions" in msg["reason"]
               and msg["dev_issues"] == ["Q1"]
+              and "Q1" in msg["regressed_ids"]
+              and saved["regressed_ids"] == ["Q1"]
               and "Q2" not in msg["reason"])
         check("the run keeps a raw/ directory for the anchors snapshot",
               (run / "raw").is_dir())
@@ -1287,9 +1303,31 @@ with tempfile.TemporaryDirectory() as d:
 
 # regressed_ids: a first measurement is not a regression
 assert loop.regressed_ids([{"id": "Q1", "score": 2}], {}) == []
-assert loop.regressed_ids([{"id": "Q1", "score": 2}], {"Q1": 5}) == ["Q1"]
-assert loop.regressed_ids([{"id": "Q1", "score": 2}], {"Q1": 1}) == []
-assert loop.regressed_ids([{"id": "Q1", "score": 5}], {"Q1": 5}) == []
+assert loop.regressed_ids([{"id": "Q1", "score": 2}], {"Q1": {"score": 5}}) == ["Q1"]
+assert loop.regressed_ids([{"id": "Q1", "score": 2}], {"Q1": {"score": 1}}) == []
+assert loop.regressed_ids([{"id": "Q1", "score": 5}], {"Q1": {"score": 5}}) == []
+check("a passing score that acquires a critical flag is a regression",
+      loop.regressed_ids([{"id": "Q1", "score": 5, "unsafe_side_effect": True}],
+                         {"Q1": {"score": 5}}) == ["Q1"])
+check("a question that was already flagged has not regressed",
+      loop.regressed_ids([{"id": "Q1", "score": 5, "unsafe_side_effect": True}],
+                         {"Q1": {"score": 5, "unsafe_side_effect": True}}) == [])
+check("clearing a critical flag at a passing score is not a regression",
+      loop.regressed_ids([{"id": "Q1", "score": 5, "unsafe_side_effect": False}],
+                         {"Q1": {"score": 5, "broken_tool": True}}) == [])
+check("2.0.1 history rows without the new flag are read as clean",
+      loop.regressed_ids([{"id": "Q1", "score": 5, "unsafe_side_effect": True}],
+                         {"Q1": {"score": 5, "broken_tool": False}}) == ["Q1"])
+
+# latest_row_map: the newest measurement per id wins, unscored rows are ignored
+latest_rows = loop.latest_row_map([
+    {"per_question": [{"id": "Q1", "score": 5}, {"id": "Q2", "score": 2}]},
+    {"per_question": [{"id": "Q1", "score": 5, "unsafe_side_effect": True},
+                      {"id": "Q3", "score": None}]},
+])
+check("latest_row_map keeps the most recent row and drops unscored rows",
+      latest_rows["Q1"]["unsafe_side_effect"] is True
+      and latest_rows["Q2"]["score"] == 2 and "Q3" not in latest_rows)
 
 # plan_output: any full run can certify, including the baseline with empty history
 base = loop.plan_output(1, "adaptive", [{"id": "Q1", "split": "dev"}], True,

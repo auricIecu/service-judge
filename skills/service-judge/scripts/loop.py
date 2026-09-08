@@ -25,8 +25,8 @@ Expects <run>/config.json:
   }
 
 Stop conditions: gates passed / max_iterations / stagnation (<2pp improvement
-in 2 consecutive iterations) / regression. Harness session limits are the
-only LLM limits; this script never calls a model API.
+and no fewer hard failures in 2 consecutive iterations) / regression. Harness
+session limits are the only LLM limits; this script never calls a model API.
 """
 import argparse
 import hashlib
@@ -381,11 +381,14 @@ def should_stop(history: list[dict], max_iterations: int) -> tuple[bool, str]:
                       "after the last fix. Reverting is your call; the loop only measures.")
     if len(fulls) >= 3:
         points = [fulls[i]["dev"]["percent"] for i in (-3, -2, -1)]
+        criticals = [len(fulls[i].get("hard_failures", [])) for i in (-3, -2, -1)]
         deltas = [points[i] - points[i - 1] for i in (1, 2)
                   if isinstance(points[i], (int, float))
                   and isinstance(points[i - 1], (int, float))]
-        if len(deltas) == 2 and all(d < 2 for d in deltas):
-            return True, f"STAGNATION: <2pp improvement in 2 consecutive iterations {deltas}"
+        if (len(deltas) == 2 and all(d < 2 for d in deltas)
+                and all(criticals[i] >= criticals[i - 1] for i in (1, 2))):
+            return True, ("STAGNATION: <2pp improvement and no fewer hard failures "
+                          f"in 2 consecutive iterations {deltas}")
     if len(history) >= max_iterations:
         return True, f"MAX_ITERATIONS: {max_iterations} reached"
     return False, ""
@@ -484,20 +487,31 @@ def budget_plan(probed_count: int, n_golden: int, cfg: dict) -> tuple[int, int, 
     return probed_count, cfg["answer_budget"] - probed_count - reserved, reserved
 
 
-def latest_score_map(history: list[dict]) -> dict[str, float]:
-    scores = {}
+def is_passing(row: dict) -> bool:
+    """A question passes only when its score is >= 4 AND no critical flag is set."""
+    score = row.get("score")
+    return (isinstance(score, (int, float)) and not isinstance(score, bool)
+            and score >= 4
+            and not any(row.get(flag) is True for flag in CRITICAL_FLAGS))
+
+
+def latest_row_map(history: list[dict]) -> dict[str, dict]:
+    rows = {}
     for grade in history:
         for row in grade.get("per_question", []):
             if isinstance(row.get("score"), (int, float)) and not isinstance(row.get("score"), bool):
-                scores[row["id"]] = row["score"]
-    return scores
+                rows[row["id"]] = row
+    return rows
 
 
-def regressed_ids(per_question: list[dict], previous: dict[str, float]) -> list[str]:
+def regressed_ids(per_question: list[dict], previous: dict[str, dict]) -> list[str]:
     """Questions that were passing at their last measurement and now are not.
-    A question with no prior score cannot have regressed — it is a first read."""
+    Passing means score >= 4 with no critical flag, so a fix that keeps the score
+    but introduces an unsafe side effect regresses. A question with no prior
+    row cannot have regressed — it is a first read."""
     return [r["id"] for r in per_question
-            if r["id"] in previous and previous[r["id"]] >= 4 and r["score"] < 4]
+            if r["id"] in previous and is_passing(previous[r["id"]])
+            and not is_passing(r)]
 
 
 def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
@@ -568,15 +582,11 @@ def select_questions(questions: list[dict], history: list[dict], cfg: dict,
     if iteration == max_iterations:
         return questions, True, "final_iteration"
 
-    latest = latest_score_map(history)
-    latest_rows = {row["id"]: row for grade in history
-                   for row in grade.get("per_question", [])}
+    latest_rows = latest_row_map(history)
     q_by_id = {q["id"]: q for q in questions}
     dev = [q for q in questions if q.get("split", "dev") == "dev"]
     failures = [q for q in dev
-                if latest.get(q["id"], 5) < 4
-                or any(latest_rows.get(q["id"], {}).get(flag) is True
-                       for flag in CRITICAL_FLAGS)]
+                if q["id"] in latest_rows and not is_passing(latest_rows[q["id"]])]
     if not failures:
         return questions, True, "no_dev_failures"
 
@@ -613,7 +623,8 @@ def select_questions(questions: list[dict], history: list[dict], cfg: dict,
         if (q.get("mode"), q.get("type", "")) in failure_keys:
             add(q)
 
-    passing = [q for q in dev if latest.get(q["id"], 5) >= 4 and q["id"] not in selected_ids]
+    passing = [q for q in dev if q["id"] not in selected_ids
+               and (q["id"] not in latest_rows or is_passing(latest_rows[q["id"]]))]
     if passing:
         offset = (iteration - 1) % len(passing)
         rotated = passing[offset:] + passing[:offset]
@@ -1059,15 +1070,13 @@ def main() -> int:
     if not grade["full"]:
         grade.pop("goals", None)
     (iter_dir / "grade.json").write_text(json.dumps(grade, indent=2))
-    previous = latest_score_map(history)
+    previous = latest_row_map(history)
     history.append(grade)
     history_path.write_text(json.dumps(history, indent=2))
     dev_fails = [r["id"] for r in grade["per_question"]
                  if r["split"] == "dev" and r["score"] < 4]
     dev_issues = [r["id"] for r in grade["per_question"]
-                  if r["split"] == "dev"
-                  and (r["score"] < 4
-                       or any(r[flag] for flag in CRITICAL_FLAGS))]
+                  if r["split"] == "dev" and not is_passing(r)]
     stop, reason = should_stop(history, max_iter)
     if not stop and not grade["full"] and grade["hard_gate"] and not dev_fails:
         reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "

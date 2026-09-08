@@ -93,9 +93,9 @@ and it freezes a golden question set, then runs:
     probe + judge → you fix your service → the SAME exam again → compare
 
 It stops on its own for four reasons: the gates passed, a fix caused a
-regression (it tells you — it never reverts), the score stagnated (<2pp twice
-in a row), or the iteration limit was reached. It measures; it never edits
-your service.
+regression (it tells you — it never reverts), the score stagnated (<2pp and no
+fewer hard failures twice in a row), or the iteration limit was reached. It
+measures; it never edits your service.
 
 The golden set carries a dev/holdout split, and between iterations you only
 ever see the holdout **aggregate**, never the individual questions — so your

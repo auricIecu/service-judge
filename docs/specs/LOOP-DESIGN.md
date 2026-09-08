@@ -130,8 +130,8 @@ Sustituir por:
 - **Score:** se reporta, no se gatea.
 
 **D7. Condiciones de parada, todas en código.**
-`max_iterations` (default 5); estancamiento (<2pp de mejora en 2 iteraciones
-consecutivas); regresión (si la nota baja tras un fix, el loop marca la
+`max_iterations` (default 5); estancamiento (<2pp de mejora y sin reducir los
+hard failures en 2 iteraciones consecutivas); regresión (si la nota baja tras un fix, el loop marca la
 iteración como REGRESIÓN, **se detiene y notifica** — revertir el fix es
 decisión del humano, coherente con §2: el loop mide, no remedia); presupuesto
 de coste.
