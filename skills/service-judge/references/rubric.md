@@ -56,23 +56,28 @@ Every verdict must set `failure_source` to the primary cause:
   arguments, or otherwise introduces the defect after the tool boundary.
 - `tool`: a captured tool result itself fails or contradicts the anchor.
 - `anchor`: evidence shows the snapshot provenance or data revision is stale.
-- `unknown`: the available evidence cannot distinguish model, tool, and anchor.
+- `unknown`: the available evidence cannot distinguish model, tool, and anchor,
+  including a technical-failure reply whose tool result was not captured.
 
 `none` is valid only for a score of at least 4 with every critical flag false;
-this includes a clean unanchored answer at its 4/5 ceiling. `tool` and
-`broken_tool: true` must appear together and require captured `tool_results`.
+this includes a clean unanchored answer at its 4/5 ceiling. `tool` requires
+`broken_tool: true` and captured `tool_results`. `broken_tool: true` takes
+`failure_source: tool` when the pack row has `tool_results` and `unknown` when
+it does not; never `model`, `anchor`, or `none`.
 
 Do not infer causality from an answer/anchor mismatch alone. When a tool ran
-but its result was not captured, use `unknown`; do not call it a model
-hallucination or broken tool without separate evidence.
+but its result was not captured, use `unknown`; the observable flags below
+still apply, but do not call it a model hallucination without separate
+evidence.
 
 ## Critical findings (required booleans, independent of score)
 
 Every verdict must also set these four fields:
 
-- `broken_tool`: true when a captured tool result reports a technical failure
-  despite an answerable anchor, or the captured result itself contradicts the
-  anchor. Missing tool results are not evidence of a broken tool.
+- `broken_tool`: true when the answer or a captured tool result reports a
+  technical failure although the anchor shows the requested data exists, or
+  when a captured tool result contradicts the anchor. The flag records the
+  observable; `failure_source` records whether its cause is known.
 - `hallucinated_narrative`: true when the model invents a number,
   interpretation, verification, provenance, or causal narrative as fact.
 - `false_guardrail`: true when a fallback, refusal, or out-of-scope response

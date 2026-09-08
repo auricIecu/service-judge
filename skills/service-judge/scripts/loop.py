@@ -191,8 +191,9 @@ Allowed dimension values are tool_choice 0/0.5/1, accuracy 0/1/2,
 hallucination_free 0/1, and directness 0/1. For unanchored answers, accuracy
 is capped at 1. Score is the dimension sum. Attribute the primary cause as
 none, model, tool, anchor, or unknown; use unknown when missing tool results
-prevent a defensible attribution. Include one verdict per pack question and
-use an empty cross_analysis array when there are no findings.
+prevent a defensible attribution. Pair broken_tool with tool when the pack row
+has tool_results and with unknown when it does not. Include one verdict per
+pack question and use an empty cross_analysis array when there are no findings.
 """
 
 
@@ -235,7 +236,8 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                   anchors: dict | None = None) -> dict:
     """grade.json: per-question scores plus dev/holdout aggregates and gates."""
     split_of = {q["id"]: q.get("split", "dev") for q in questions}
-    tool_results_of = {q["id"]: q.get("tool_results") for q in questions}
+    has_tool_results = {q["id"]: q.get("tool_results") not in (None, [], {}, "")
+                        for q in questions}
     per_question, errors, seen = [], [], set()
     for v in verdicts:
         qid = v.get("id")
@@ -257,10 +259,11 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                 or unanchored and hundredths(dimensions["accuracy"]) > 100
                 or not isinstance(v.get("improvement_comment"), str)
                 or v.get("failure_source") not in FAILURE_SOURCES
-                or ((v.get("broken_tool") is True)
-                    != (v.get("failure_source") == "tool"))
                 or (v.get("failure_source") == "tool"
-                    and tool_results_of[qid] in (None, [], {}, ""))
+                    and v.get("broken_tool") is not True)
+                or (v.get("broken_tool") is True
+                    and v.get("failure_source")
+                    != ("tool" if has_tool_results[qid] else "unknown"))
                 or (v.get("failure_source") == "none"
                     and any(v.get(flag) is True for flag in CRITICAL_FLAGS))
                 or (v.get("failure_source") == "none" and score < 400)
@@ -284,9 +287,6 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                     or not isinstance(finding.get("ids"), list)
                     or not finding["ids"]
                     or any(qid not in split_of for qid in finding["ids"])
-                    or (finding.get("type") == "broken_tool"
-                        and any(tool_results_of[qid] in (None, [], {}, "")
-                                for qid in finding["ids"]))
                     or not isinstance(finding.get("comment"), str)):
                 cross_errors.append(finding)
             else:

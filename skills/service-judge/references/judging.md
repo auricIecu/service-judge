@@ -102,8 +102,9 @@ After scoring individual answers, do a CROSS-ANSWER pass:
    April–June had no sales. Both scored fine alone; together they reveal a
    bug. The contradiction-bait pairs from Phase 3 land here.
 2. **"Technical error" replies where the anchor shows the data EXISTS** —
-   if the captured tool result contains the failure, that is a broken tool,
-   not missing data. Without a captured result, attribute it as unknown.
+   that is a broken tool, not missing data: flag `broken_tool`, then attribute
+   it `tool` if the captured tool result shows the failure and `unknown` if no
+   result was captured. These are usually the highest-ROI fixes.
 3. **Narrative over artifacts** — placeholder/empty periods narrated as real
    business events ("Q2 collapse"). The most dangerous hallucination class.
 4. **Guardrails firing falsely** — error fallbacks answering legitimate
@@ -117,8 +118,8 @@ Persist critical cross-answer findings as an array of
 or `arithmetic_inconsistency`. Use canonical question IDs in `ids`; an empty
 array means no cross-answer defect. The loop stores this in
 `cross-analysis.json` and `grade.json`; any finding fails the hard gate
-without changing the cold per-answer scores. A `broken_tool` finding requires
-captured, non-empty `tool_results` for every cited ID.
+without changing the cold per-answer scores. A `broken_tool` finding records
+the observable pattern; say in its `comment` whether tool results backed it.
 
 ## Anti-bias rules
 

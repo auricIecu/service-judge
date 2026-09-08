@@ -12,6 +12,10 @@
   without required data or authorization now fail certification explicitly.
 - **Tool-result evidence:** structured probes preserve optional `tool_results`
   so judges can distinguish wrong model behavior from wrong tool output.
+  `broken_tool` stays an observable hard-gate flag for plain-text probes: a
+  technical-failure reply on an answerable anchor is flagged with
+  `failure_source: unknown` when no tool result was captured and must be
+  attributed `tool` when one was.
 - **Flag-aware regression and stagnation:** a question regresses when it was
   passing (score ≥4, no critical flag) and no longer is, so a fix that keeps
   5/5 but introduces an unsafe side effect now reaches `regressed_ids` and the

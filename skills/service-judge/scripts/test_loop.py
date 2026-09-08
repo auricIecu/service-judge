@@ -120,6 +120,30 @@ misattributed_tool_failure = compute_grade(
 check("broken tool findings must be attributed to the tool",
       [row["id"] for row in misattributed_tool_failure["per_question"]] == ["Q2"])
 
+observed_broken_tool = compute_grade(
+    [v("Q1", 5, broken_tool=True, failure_source="unknown"), v("Q2", 5)],
+    QS, "m", [], [], GOALS, ANCHORS,
+)
+check("a plain-text probe can still flag a broken tool with an unknown cause",
+      observed_broken_tool["per_question"][0]["failure_source"] == "unknown"
+      and not observed_broken_tool["hard_gate"]
+      and observed_broken_tool["hard_failures"][0]["flags"] == ["broken_tool"])
+
+unattributed_with_evidence = compute_grade(
+    [v("Q1", 5, broken_tool=True, failure_source="unknown"), v("Q2", 5)],
+    TOOL_EVIDENCE_QS, "m", [], [], GOALS, ANCHORS,
+)
+check("a captured tool result forces the broken tool to be attributed",
+      [row["id"] for row in unattributed_with_evidence["per_question"]] == ["Q2"])
+
+for wrong_source in ("model", "anchor", "none"):
+    wrong = compute_grade(
+        [v("Q1", 5, broken_tool=True, failure_source=wrong_source), v("Q2", 5)],
+        QS, "m", [], [], GOALS, ANCHORS,
+    )
+    check(f"broken_tool cannot be attributed to {wrong_source}",
+          [row["id"] for row in wrong["per_question"]] == ["Q2"])
+
 ungated_tool_failure = compute_grade(
     [v("Q1", 4, dimensions={"tool_choice": 1, "accuracy": 1,
                               "hallucination_free": 1, "directness": 1},
@@ -210,9 +234,9 @@ unsupported_cross_tool = compute_grade(
     [{"type": "broken_tool", "ids": ["Q1"], "comment": "wrong result"}],
     GOALS, ANCHORS,
 )
-check("cross-answer tool failures require captured tool results",
-      unsupported_cross_tool["cross_analysis"] == []
-      and "1 cross-analysis errors" in unsupported_cross_tool["degradations"])
+check("cross-answer tool failures do not require captured tool results",
+      unsupported_cross_tool["cross_analysis"][0]["type"] == "broken_tool"
+      and not unsupported_cross_tool["hard_gate"])
 
 supported_cross_tool = compute_grade(
     [v("Q1", 5), v("Q2", 5)], TOOL_EVIDENCE_QS, "m", [],
