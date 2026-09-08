@@ -7,7 +7,12 @@
   re-probe the service.
 - **Causal verdicts:** every judgment attributes the primary defect to the
   model, tool, anchor, or unknown evidence instead of treating every
-  answer/anchor mismatch as hallucination.
+  answer/anchor mismatch as hallucination. A verdict at its ceiling with every
+  critical flag false must use `none`; attributing a defect nobody observed is
+  `invalid_judgment`.
+- **Captured tool results:** `null`, booleans, blank strings, empty
+  containers, and lists of empties in `tool_results` no longer count as
+  evidence for a `tool` attribution.
 - **Side-effect hard gate:** mutating or externally visible tool calls made
   without required data or authorization now fail certification explicitly.
 - **Tool-result evidence:** structured probes preserve optional `tool_results`

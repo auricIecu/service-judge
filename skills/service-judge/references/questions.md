@@ -138,8 +138,9 @@ user — hiding it is the loop's job, not this one.
   capture it whenever it's available and say so in the report when it isn't.
   Record `tools_called: []` when no tool ran; reserve `null` for unavailable
   telemetry. Record `tool_results` as the non-null, non-empty JSON value exposed
-  by responses, logs, or observability; otherwise omit it. Never turn
-  unavailable evidence into an empty trace.
+  by responses, logs, or observability; otherwise omit it. Booleans, blank
+  strings, empty containers, and lists of empties do not count as captured.
+  Never turn unavailable evidence into an empty trace.
 - The pack `id` IS the canonical question key `Q<NN>` (e.g. `Q07`): the same
   key used in `anchors.snapshot.json`, in the scorecard's `#` column, and as the suffix
   of the probe session ID (`eval-<date>-Q<NN>`).

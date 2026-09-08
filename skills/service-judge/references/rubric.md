@@ -59,11 +59,15 @@ Every verdict must set `failure_source` to the primary cause:
 - `unknown`: the available evidence cannot distinguish model, tool, and anchor,
   including a technical-failure reply whose tool result was not captured.
 
-`none` is valid only for a score of at least 4 with every critical flag false;
-this includes a clean unanchored answer at its 4/5 ceiling. `tool` requires
-`broken_tool: true` and captured `tool_results`. `broken_tool: true` takes
-`failure_source: tool` when the pack row has `tool_results` and `unknown` when
-it does not; never `model`, `anchor`, or `none`.
+`none` is valid only for a score of at least 4 with every critical flag false,
+and it is required when the score is at its ceiling (5, or 4 for an
+unanchored answer) with every critical flag false: no lost point and no flag
+means no defect to attribute. `tool` requires `broken_tool: true` and captured
+`tool_results`. `broken_tool: true` takes `failure_source: tool` when the pack
+row has captured `tool_results` and `unknown` when it does not; never `model`,
+`anchor`, or `none`. Captured means a non-blank string, a number, a non-empty
+object, or a list holding at least one of those; `null`, booleans, empties,
+and lists of empties are not evidence.
 
 Do not infer causality from an answer/anchor mismatch alone. When a tool ran
 but its result was not captured, use `unknown`; the observable flags below

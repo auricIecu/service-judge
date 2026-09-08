@@ -229,6 +229,21 @@ def evaluate_goals(metrics: dict, goals: dict | None,
     return {"met": all(row["met"] for row in detail), "detail": detail}
 
 
+def captured_tool_results(value) -> bool:
+    """True when tool_results carries evidence: a non-blank string, a number, a
+    non-empty object, or a list with at least one such element. null, booleans,
+    empties, and lists of empties are not evidence."""
+    if value is None or isinstance(value, bool):
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return any(captured_tool_results(item) for item in value)
+    if isinstance(value, dict):
+        return bool(value)
+    return True
+
+
 def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                   degradations: list[str],
                   cross_analysis: list[dict] | None = None,
@@ -236,7 +251,7 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                   anchors: dict | None = None) -> dict:
     """grade.json: per-question scores plus dev/holdout aggregates and gates."""
     split_of = {q["id"]: q.get("split", "dev") for q in questions}
-    has_tool_results = {q["id"]: q.get("tool_results") not in (None, [], {}, "")
+    has_tool_results = {q["id"]: captured_tool_results(q.get("tool_results"))
                         for q in questions}
     per_question, errors, seen = [], [], set()
     for v in verdicts:
@@ -267,6 +282,9 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                 or (v.get("failure_source") == "none"
                     and any(v.get(flag) is True for flag in CRITICAL_FLAGS))
                 or (v.get("failure_source") == "none" and score < 400)
+                or (v.get("failure_source") != "none"
+                    and score >= (400 if unanchored else 500)
+                    and not any(v.get(flag) is True for flag in CRITICAL_FLAGS))
                 or any(not isinstance(v.get(flag), bool) for flag in CRITICAL_FLAGS)):
             errors.append({"id": qid, "error": "invalid_verdict"})
             continue

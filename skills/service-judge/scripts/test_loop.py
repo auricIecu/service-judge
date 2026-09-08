@@ -49,7 +49,8 @@ def v(qid, score, verdict=None, dimensions=None, unanchored=False, **critical):
            "unanchored": unanchored, "improvement_comment": "",
            **flags,
            "failure_source": critical.get(
-               "failure_source", "none" if score == 5 and not any(flags.values())
+               "failure_source",
+               "none" if score == (4 if unanchored else 5) and not any(flags.values())
                else "model")}
     if verdict is not None:
         row["verdict"] = verdict
@@ -186,6 +187,48 @@ unknown_source = compute_grade([v("Q1", 3, dimensions={"tool_choice": 1,
                               QS, "m", [], [], GOALS, ANCHORS)
 check("missing tool results leave the failure source unknown",
       unknown_source["per_question"][0]["failure_source"] == "unknown")
+
+for phantom_source in ("model", "tool", "anchor", "unknown"):
+    phantom = compute_grade([v("Q1", 5, failure_source=phantom_source), v("Q2", 5)],
+                            QS, "m", [], [], GOALS, ANCHORS)
+    check(f"a clean 5/5 cannot attribute a defect to {phantom_source}",
+          [row["id"] for row in phantom["per_question"]] == ["Q2"])
+
+phantom_unanchored = compute_grade(
+    [v("Q1", 5), v("Q2", 4, dimensions={"tool_choice": 1, "accuracy": 1,
+                                          "hallucination_free": 1, "directness": 1},
+       unanchored=True, failure_source="model")],
+    QS, "m", [], [], GOALS, {"Q1": {"anchor": "a"}, "Q2": {"anchor": None}},
+)
+check("a clean unanchored answer at its 4/5 ceiling cannot attribute a defect",
+      [row["id"] for row in phantom_unanchored["per_question"]] == ["Q1"])
+
+lost_point = compute_grade(
+    [v("Q1", 4, dimensions={"tool_choice": 1, "accuracy": 2,
+                              "hallucination_free": 1, "directness": 0},
+       failure_source="model"), v("Q2", 5)],
+    QS, "m", [], [], GOALS, ANCHORS,
+)
+check("a passing verdict that lost a point may still attribute the defect",
+      lost_point["per_question"][0]["failure_source"] == "model")
+
+for empty_evidence in (None, False, True, "", "   ", [], {}, [None], [{}], [""], [[]]):
+    not_captured = compute_grade(
+        [v("Q1", 5, broken_tool=True, failure_source="tool"), v("Q2", 5)],
+        [QS[0] | {"tool_results": empty_evidence}, QS[1]],
+        "m", [], [], GOALS, ANCHORS,
+    )
+    check(f"tool_results={empty_evidence!r} is not captured evidence",
+          [row["id"] for row in not_captured["per_question"]] == ["Q2"])
+
+for real_evidence in (0, "ERR timeout", [None, {"count": 0}], {"inventory": None}):
+    captured = compute_grade(
+        [v("Q1", 5, broken_tool=True, failure_source="tool"), v("Q2", 5)],
+        [QS[0] | {"tool_results": real_evidence}, QS[1]],
+        "m", [], [], GOALS, ANCHORS,
+    )
+    check(f"tool_results={real_evidence!r} is captured evidence",
+          captured["per_question"][0]["failure_source"] == "tool")
 
 invalid_source = compute_grade([v("Q1", 5, failure_source="guess"), v("Q2", 5)],
                                QS, "m", [], [], GOALS, ANCHORS)

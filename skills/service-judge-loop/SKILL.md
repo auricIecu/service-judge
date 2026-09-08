@@ -241,8 +241,9 @@ delete before retrying.
    `tools_called: null` only when telemetry is unavailable. Plain text remains
    supported and records `tools_called: null`. Preserve any non-null, non-empty
    JSON shape exposed as `tool_results`; omit it when the service cannot expose
-   results. The judge then uses `failure_source: unknown` for defects whose
-   cause crosses that missing boundary.
+   results. `null`, booleans, blank strings, empty containers, and lists of
+   empties count as not captured. The judge then uses `failure_source: unknown`
+   for defects whose cause crosses that missing boundary.
 
    Point `probe_cmd` at staging, not production. `anchors` points to the
    machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set
