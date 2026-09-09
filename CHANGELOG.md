@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.0.1 — 2026-09-09
+
+- **Stop on new critical findings:** consecutive full runs now stop on a new
+  question/flag pair or cross-answer finding even when the dev score stays flat
+  or improves. Replacing one failure with another is regression, not progress.
+  Focused runs still wait for full confirmation; reasons never reveal holdout
+  IDs. Rewording or reordering an existing finding does not trigger a stop.
+  Stagnation uses the same findings, so clearing a cross-answer finding or one
+  of several flags on a question counts as progress at a flat score.
+- **Stale-anchor attribution:** independently proven stale provenance takes
+  precedence over blaming a tool for a snapshot mismatch. Accuracy still
+  compares against the frozen anchor; provenance notes do not silently replace
+  the exam's expected value.
+- **Judge calibration:** add frozen synthetic cases with expected causal
+  sources and critical flags, covering model/tool mistakes, stale anchors,
+  missing evidence, unsafe actions, false refusals, and clean controls.
+  [Before/after results](docs/dogfood/2026-09-09-judge-calibration.md): causal
+  matches improved from 11/12 to 12/12, with no critical-flag false positives or
+  omissions in either run. This is a small synthetic calibration, not a live
+  production certification.
+- **Downloadable skills:** publish both the evaluator and its companion loop
+  as separate versioned `.skill` assets and clarify the web upload instructions.
+
 ## 3.0.0 — 2026-09-08
 
 Verdicts now say what broke and why, and the loop measures progress on flags,

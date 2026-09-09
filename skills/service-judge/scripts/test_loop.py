@@ -551,15 +551,41 @@ assert should_stop([g(60), g(61), g(61.5)], 5)[1].startswith("STAGNATION")
 assert not should_stop([g(60), g(65), g(70)], 5)[0]              # improving
 flagged = lambda pct, ids: g(pct) | {"hard_failures": [
     {"id": qid, "flags": ["unsafe_side_effect"]} for qid in ids]}
+for current_pct in (90, 95):
+    stopped, reason = should_stop([flagged(90, []),
+                                  flagged(current_pct, ["private-holdout-id"])], 5)
+    check("a new critical finding stops even with a flat or higher score",
+          stopped and reason.startswith("REGRESSION")
+          and "private-holdout-id" not in reason)
+extra_flag = flagged(90, ["Q1"])
+extra_flag["hard_failures"][0]["flags"].append("hallucinated_narrative")
+check("a new flag on an already failing question is a regression",
+      should_stop([flagged(90, ["Q1"]), extra_flag], 5)[1].startswith("REGRESSION"))
+cross_grade = g(90) | {"cross_analysis": [
+    {"type": "unsafe_side_effect", "ids": ["Q1", "Q2"], "comment": "first"}]}
+check("new cross-answer critical findings also stop the loop",
+      should_stop([g(90), cross_grade], 5)[1].startswith("REGRESSION"))
+reordered_cross = g(90) | {"cross_analysis": [
+    {"type": "unsafe_side_effect", "ids": ["Q2", "Q1", "Q1"],
+     "comment": "same finding, rephrased"}]}
+check("cross-answer wording and id order do not create a regression",
+      not should_stop([cross_grade, reordered_cross], 5)[0])
+check("clearing a cross-answer finding at a flat score resets stagnation",
+      not should_stop([cross_grade, cross_grade, g(90)], 5)[0])
+check("clearing one of a question's flags at a flat score resets stagnation",
+      not should_stop([extra_flag, extra_flag, flagged(90, ["Q1"])], 5)[0])
+check("focused critical findings wait for full-run confirmation",
+      not should_stop([flagged(90, []),
+                       flagged(90, ["Q1"]) | {"full": False}], 5)[0])
 check("fewer hard failures at a flat score is progress, not stagnation",
       not should_stop([flagged(90, ["Q1", "Q2"]), flagged(90, ["Q1"]),
                        flagged(90, [])], 5)[0])
 check("a flat score with the same hard failures is stagnation",
       should_stop([flagged(90, ["Q1"]), flagged(90, ["Q1"]),
                    flagged(90, ["Q1"])], 5)[1].startswith("STAGNATION"))
-check("a flat score that trades one hard failure for another is stagnation",
+check("a flat score that trades one hard failure for another is regression",
       should_stop([flagged(90, ["Q1"]), flagged(90, ["Q2"]),
-                   flagged(90, ["Q3"])], 5)[1].startswith("STAGNATION"))
+                   flagged(90, ["Q3"])], 5)[1].startswith("REGRESSION"))
 check("one step of fewer hard failures resets the stagnation window",
       not should_stop([flagged(90, ["Q1"]), flagged(90, ["Q1"]),
                        flagged(90, [])], 5)[0])
@@ -1205,6 +1231,35 @@ with tempfile.TemporaryDirectory() as d:
               rc == 0 and msg["status"] == "stopped" and calls == [])
     finally:
         loop.probe = old_probe
+
+with tempfile.TemporaryDirectory() as d:
+    initial = [v("Q1", 5), v("Q2", 3, dimensions={
+        "tool_choice": 1, "accuracy": 0, "hallucination_free": 1, "directness": 1})]
+    baseline = compute_grade(initial, QS, "m", [], [], GOALS, ANCHORS)
+    run = make_run(pathlib.Path(d), QS, history=[baseline])
+    iteration = run / "iter-02"
+    (iteration / "raw").mkdir(parents=True)
+    write_json(iteration / "selection.json", {
+        "selected_ids": ["Q1", "Q2"], "full": True,
+        "reason": "fixture", "strategy": "full"})
+    write_jsonl(iteration / "raw/pack.jsonl", [
+        {"id": q["id"], "mode": q["mode"], "question": q["question"],
+         "answer": "fixture"} for q in QS])
+    write_json(iteration / "verdicts.json", [
+        v("Q1", 5, unsafe_side_effect=True, failure_source="model"), initial[1]])
+    write_json(iteration / "cross-analysis.json", [])
+    rc, out, _ = run_main(run)
+    stopped = json.loads(out)
+    check("finalization stops on a new flag without a dev score drop",
+          rc == 0 and stopped["status"] == "stopped"
+          and stopped["reason"].startswith("REGRESSION")
+          and stopped["dev"] == baseline["dev"]["percent"]
+          and "Q2" not in out)
+    rc, out, _ = run_main(run)
+    check("resuming a critical regression stops before another probe",
+          rc == 0 and json.loads(out)["status"] == "stopped"
+          and not (run / "iter-03").exists()
+          and len(json.loads((run / "history.json").read_text())) == 2)
 
 with tempfile.TemporaryDirectory() as d:
     old_collect = getattr(loop, "collect_git_preflight", None)

@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "3.0.0"
+  version: "3.0.1"
 ---
 
 # service-judge-loop
@@ -37,9 +37,15 @@ for the next fix. Manual mode waits for a human; autopilot writes a redacted
 `fix-brief.json` and follows the authorized cycle below.
 
 It stops on hard gate plus configured goals passed, regression (it notifies — never reverts),
-stagnation (<2pp improvement and no fewer hard failures twice in a row), the
+stagnation (<2pp improvement and no fewer critical findings twice in a row), the
 iteration limit, or an autopilot full run with nothing actionable left for the
-fixer. LLM usage
+fixer. Regression compares consecutive full runs: a lower dev score OR any
+new critical flag on a question or new cross-answer finding stops the loop,
+even if the score improves. Unchanged findings, reordered finding IDs, and
+reworded comments do not count as new. A cross-answer finding is identified by
+its type and complete set of IDs: changed membership, even a smaller group,
+conservatively counts as new and may require manual review. The stop reason
+reports only a count, never holdout IDs. LLM usage
 consumes the active harness subscription/session limits by default; an external
 judge consumes that other harness's subscription. No API key is read and no
 model API is called directly by the plugin.

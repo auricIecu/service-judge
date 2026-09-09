@@ -29,7 +29,8 @@ Born from a real eval that caught broken tools, placeholder data narrated as a b
 
 Two skills ship in this repo: **service-judge** (one-off evaluation) and
 **service-judge-loop** (autonomous improvement loop around it). Both install
-together from any of the channels below.
+together through the plugin and static-copy channels below. For claude.ai,
+upload the two separate skill packages if you want both.
 
     service-judge/
     ├── skills/
@@ -66,8 +67,8 @@ The skill uses available subagents and otherwise judges in-session.
 
 ### claude.ai (web)
 
-1. Download `service-judge.skill` from the [latest release](https://github.com/auricIecu/service-judge/releases/latest) — check the tag matches the version you expect; the plugin channels above always track `main`, releases are cut per version.
-2. claude.ai → **Settings → Capabilities → Skills → Upload skill**.
+1. Download `service-judge-<version>.skill` from the [latest release](https://github.com/auricIecu/service-judge/releases/latest). For the improvement loop, also download `service-judge-loop-<version>.skill`; it needs the evaluator package. Check that both match the release version; plugin channels track `main`.
+2. claude.ai → **Settings → Capabilities → Skills → Upload skill**. Upload each downloaded package separately.
 3. In a chat (ideally with the GitHub connector pointed at your service's repo), ask Claude to evaluate your service.
 
 > On the web, Claude can read your repo via the GitHub connector and your DB via an MCP connector. If your service's API isn't publicly reachable, the skill switches to "bring your outputs" mode — you paste or upload your service's answers and it judges them the same way.
@@ -93,8 +94,9 @@ and it freezes a golden question set, then runs:
     probe + judge → you fix your service → the SAME exam again → compare
 
 It stops on its own for four reasons: the gates passed, a fix caused a
-regression (it tells you — it never reverts), the score stagnated (<2pp and no
-fewer hard failures twice in a row), or the iteration limit was reached. It
+regression (a lower dev score or any new critical flag/cross-answer finding
+between full runs; it tells you — it never reverts), the score stagnated (<2pp and no
+fewer critical findings twice in a row), or the iteration limit was reached. It
 measures; it never edits your service.
 
 The golden set carries a dev/holdout split, and between iterations you only

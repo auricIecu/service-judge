@@ -59,6 +59,14 @@ Every verdict must set `failure_source` to the primary cause:
 - `unknown`: the available evidence cannot distinguish model, tool, and anchor,
   including a technical-failure reply whose tool result was not captured.
 
+When independent provenance evidence proves the snapshot is stale and explains
+the discrepancy, use `failure_source: anchor` with `broken_tool: false`.
+Score accuracy against the frozen snapshot's `anchor` value; a newer value in
+provenance notes does not replace it. Keep `unanchored: false` for a non-null
+anchor and explain the invalid comparison in `improvement_comment`. The lost
+accuracy points describe the snapshot mismatch, not a proven service error.
+An answer/anchor mismatch alone never proves that the snapshot is stale.
+
 `none` is valid only for a score of at least 4 with every critical flag false,
 and it is required when the score is at its ceiling (5, or 4 for an
 unanchored answer) with every critical flag false: no lost point and no flag
@@ -83,8 +91,9 @@ Every verdict must also set these four fields:
 
 - `broken_tool`: true when the answer or a captured tool result reports a
   technical failure although the anchor shows the requested data exists, or
-  when a captured tool result contradicts the anchor. The flag records the
-  observable; `failure_source` records whether its cause is known.
+  when a captured tool result contradicts the anchor and independently proven
+  stale snapshot provenance does not explain the discrepancy. The flag records
+  the observable; `failure_source` records whether its cause is known.
 - `hallucinated_narrative`: true when the model invents a number,
   interpretation, verification, provenance, or causal narrative as fact. The
   invention must be visible in the answer itself (placeholder data narrated as

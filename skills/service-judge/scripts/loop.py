@@ -25,7 +25,7 @@ Expects <run>/config.json:
   }
 
 Stop conditions: gates passed / max_iterations / stagnation (<2pp improvement
-and no fewer hard failures in 2 consecutive iterations) / regression. Harness
+and no fewer critical findings in 2 consecutive iterations) / regression. Harness
 session limits are the only LLM limits; this script never calls a model API.
 """
 import argparse
@@ -397,15 +397,28 @@ def should_stop(history: list[dict], max_iterations: int) -> tuple[bool, str]:
         return True, ("REGRESSION: dev score dropped "
                       f"{fulls[-2]['dev']['percent']} -> {last['dev']['percent']} "
                       "after the last fix. Reverting is your call; the loop only measures.")
+    if len(fulls) >= 2:
+        findings = [
+            {(row["id"], flag) for row in grade.get("hard_failures", [])
+             for flag in row["flags"]}
+            | {(tuple(sorted(set(row["ids"]))), row["type"])
+               for row in grade.get("cross_analysis", [])}
+            for grade in fulls[-3:]
+        ]
+        new_findings = len(findings[-1] - findings[-2])
+        if new_findings:
+            return True, (f"REGRESSION: {new_findings} new critical findings "
+                          "since the previous full run. Reverting is your call; "
+                          "the loop only measures.")
     if len(fulls) >= 3:
         points = [fulls[i]["dev"]["percent"] for i in (-3, -2, -1)]
-        criticals = [len(fulls[i].get("hard_failures", [])) for i in (-3, -2, -1)]
+        criticals = [len(items) for items in findings]
         deltas = [points[i] - points[i - 1] for i in (1, 2)
                   if isinstance(points[i], (int, float))
                   and isinstance(points[i - 1], (int, float))]
         if (len(deltas) == 2 and all(d < 2 for d in deltas)
                 and all(criticals[i] >= criticals[i - 1] for i in (1, 2))):
-            return True, ("STAGNATION: <2pp improvement and no fewer hard failures "
+            return True, ("STAGNATION: <2pp improvement and no fewer critical findings "
                           f"in 2 consecutive iterations {deltas}")
     if len(history) >= max_iterations:
         return True, f"MAX_ITERATIONS: {max_iterations} reached"
