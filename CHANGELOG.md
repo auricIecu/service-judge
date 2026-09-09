@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 3.0.0 — 2026-09-08
+
+Verdicts now say what broke and why, and the loop measures progress on flags,
+not only on score.
 
 - **Breaking for in-flight judgments:** verdict files written by 2.0.1 lack
   the two new required fields. Re-judge the saved pack after upgrading; do not

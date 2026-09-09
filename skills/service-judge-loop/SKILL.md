@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "2.0.1"
+  version: "3.0.0"
 ---
 
 # service-judge-loop
