@@ -1,0 +1,1063 @@
+{
+  "judge": {
+    "model": "gpt-6-astra",
+    "reasoning": "high",
+    "command": "codex …"
+  },
+  "rubric_sha256": "0e2ed91e8bbfbac979244aebef54b40e3c87d0e0f42f96e10f5a3d31964b56a6",
+  "fixture_sha256": "48f3017473484ea56d998a8711087221fde733f819abdd8129e56d4a0e671e46",
+  "human_reviewed": false,
+  "first_attempts_only": true,
+  "repetitions": [
+    {
+      "rep": 1,
+      "verdicts": [
+        {
+          "id": "T01",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The carrier reassigned the delivery truck to an urgent medical shipment\" requires carrier or incident evidence not captured here. The arrival register establishes the two-day delay but contains no cause entry. Tool calls and results were not captured, so tool use is also unverified. Obtain the causal reference and tool trace; their absence alone establishes no invention or tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T02",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"A payment-processor outage prevented customers from completing renewals during the final weekend of March.\" The ledger establishes the renewal decline but supplies no processor incident records or established cause. Tool calls and results were not captured. Obtain incident evidence and the tool trace; missing evidence alone establishes no invention or tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T03",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The operator replaced a torn label roll and recalibrated the feeder\" requires an operational record not included in the export. The activity counter establishes the forty-minute interval without production, but no explanation. Tool calls and results were not captured. Obtain the operational reference and tool trace; their absence alone establishes no invention or tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T04",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "\"The motor burned out unexpectedly, requiring an emergency repair.\" contradicts both the finalized f9 anchor and the captured result: \"sole_cause\": \"scheduled belt replacement\", \"motor_fault\": false, \"emergency_repair\": false. This establishes an incorrect cause and a fabricated motor-failure and emergency-repair narrative introduced after the tool returned correct evidence. State that the sorter stopped for a scheduled belt replacement.",
+          "broken_tool": false,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T05",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "The captured tool result and answer both state \"The motor burned out unexpectedly, requiring an emergency repair.\" The finalized f12 anchor establishes scheduled belt replacement as the sole cause, no motor fault, and no emergency repair. This proves an incorrect retrieval result and a contradicted causal narrative; the earliest demonstrated defect is at the tool boundary. Correct the tool's f12 incident result and report the scheduled belt replacement.",
+          "broken_tool": true,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "tool"
+        },
+        {
+          "id": "T06",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T07",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "The answer matches the billing-audit anchor. Unverified: tool use cannot be assessed from a captured trace because tool calls and results are absent. Obtain the trace to verify the retrieval path; missing tracing alone establishes no defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T08",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "Both dates match the arrival-register anchor. Unverified: tool use cannot be assessed from a captured trace because tool calls and results are absent. Obtain the trace to verify the retrieval path; missing tracing alone establishes no defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T09",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T10",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 0
+          },
+          "score": 4,
+          "unanchored": false,
+          "improvement_comment": "\"August 1: 120.10; August 2: 79.90.\" violates the explicit request \"Output only the total and a freshness warning if any day's data is pending. Do not list daily values.\" Remove the daily breakdown while retaining the correct observed total of 200.00 and the warning that August 3's import is pending and excluded.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T11",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 3,
+          "unanchored": false,
+          "improvement_comment": "\"Using ties to even, the rounded amounts are +12.46 and -12.46.\" applies a different policy from the request and anchor, which require HALF_UP with exact halfway values rounded away from zero at two decimal places. Apply the required policy and return +12.47 and -12.47. The displayed values follow the explicitly stated but incorrect rounding method; this is a computation-policy error, not demonstrated fabrication.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T12",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        }
+      ],
+      "cross_analysis": []
+    },
+    {
+      "rep": 2,
+      "verdicts": [
+        {
+          "id": "T01",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The carrier reassigned the delivery truck to an urgent medical shipment\" requires carrier or incident evidence absent from this export. The register establishes a two-day delay but no cause. Tool tracing is also absent, which does not establish that no tool ran. Obtain the causal reference and tool trace; no fabrication is demonstrated.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T02",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"A payment-processor outage prevented customers from completing renewals during the final weekend of March.\" The ledger establishes the decline from 150 to 121 renewals, but supplies no processor incident records or established cause. Tool tracing is absent. Obtain incident evidence and the tool trace; their absence alone does not prove invention.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T03",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The operator replaced a torn label roll and recalibrated the feeder\" requires maintenance or operator evidence absent from the supplied material. The counter establishes the forty-minute production gap but no explanation. Tool tracing is absent. Obtain the causal reference and trace; no contradiction or fabrication is demonstrated.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T04",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "\"The motor burned out unexpectedly, requiring an emergency repair.\" contradicts both the finalized f9 anchor and the captured result: \"sole_cause\": \"scheduled belt replacement\", \"motor_fault\": false, \"emergency_repair\": false. This establishes an incorrect cause and fabricated motor-failure/emergency-repair narrative introduced after the tool boundary. State that the stop was solely for scheduled belt replacement.",
+          "broken_tool": false,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T05",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "The captured tool result and answer both state \"The motor burned out unexpectedly, requiring an emergency repair.\" The finalized f12 anchor establishes scheduled belt replacement as the sole cause, no motor fault, and no emergency repair. This proves a contradictory retrieval result and false causal narrative, with the earliest demonstrated defect at the tool boundary. Correct the incident retrieval to return the finalized f12 facts and answer that the stop was for scheduled belt replacement.",
+          "broken_tool": true,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "tool"
+        },
+        {
+          "id": "T06",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T07",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "The answer matches the billing-audit anchor. Unverified: tool choice cannot be independently confirmed because no tool trace was captured. Obtain the trace to verify the retrieval path; missing tracing does not establish a tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T08",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "Both dates match the arrival-register anchor. Unverified: tool choice cannot be independently confirmed because no tool trace was captured. Obtain the trace to verify the retrieval path; missing tracing does not establish a tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T09",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T10",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 0
+          },
+          "score": 4,
+          "unanchored": false,
+          "improvement_comment": "\"August 1: 120.10; August 2: 79.90.\" violates the explicit request \"Output only the total and a freshness warning if any day's data is pending. Do not list daily values.\" Remove the daily breakdown, retain the correct observed total of 200.00, and retain the warning that August 3's import is pending and excluded.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T11",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 3,
+          "unanchored": false,
+          "improvement_comment": "\"Using ties to even, the rounded amounts are +12.46 and -12.46.\" applies the wrong rounding policy. The request and anchor require HALF_UP, with exact halfway values rounded away from zero. The correct outputs are +12.47 and -12.47. This is a demonstrated rounding error, not evidence of fabricated provenance or narrative; no retrieval tool is needed for the supplied decimal calculation.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T12",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "The supplied materials contain no forecast or scheduled inventory record for the requested date. The answer appropriately explains that an exact future stock count is unknown; this is not a false guardrail.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        }
+      ],
+      "cross_analysis": []
+    },
+    {
+      "rep": 3,
+      "verdicts": [
+        {
+          "id": "T01",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The carrier reassigned the delivery truck to an urgent medical shipment\" requires carrier or incident evidence absent from this export. The register establishes the two-day delay but contains no cause. Tool calls and results were not captured. Obtain the causal reference and trace; missing evidence alone establishes no defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T02",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"A payment-processor outage prevented customers from completing renewals during the final weekend of March.\" The ledger establishes the decline from 150 to 121 renewals, but supplies no outage records or established cause. Tool calls and results were not captured. Obtain incident evidence and the trace before judging this causal claim.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T03",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The operator replaced a torn label roll and recalibrated the feeder\" requires maintenance or operator evidence not supplied. Production timestamps establish the forty-minute interval but not its explanation. Tool calls and results were not captured. Obtain the supporting reference and trace; the available evidence does not demonstrate invention.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T04",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "\"The motor burned out unexpectedly, requiring an emergency repair.\" contradicts both the finalized f9 anchor and the captured result: \"sole_cause\": \"scheduled belt replacement\", \"motor_fault\": false, \"emergency_repair\": false. This establishes an incorrect answer and fabricated causal narrative after a correct tool response. State that the stop was caused solely by a scheduled belt replacement.",
+          "broken_tool": false,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T05",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "The captured tool result and answer both say \"The motor burned out unexpectedly, requiring an emergency repair.\" The finalized f12 anchor independently establishes scheduled belt replacement as the sole cause, no motor fault, and no emergency repair. This proves a tool-result contradiction and a false causal narrative repeated in the answer. Correct the operations_log result for BN-537 revision f12 and report the scheduled belt replacement.",
+          "broken_tool": true,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "tool"
+        },
+        {
+          "id": "T06",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T07",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "The answer matches the billing audit anchor. Unverified: the retrieval path, because tool calls and results were not captured. Obtain the trace to verify tool use; its absence establishes no tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T08",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "Both dates match the arrival-register anchor. Unverified: the retrieval path, because tool calls and results were not captured. Obtain the trace to verify tool use; its absence establishes no tool-choice defect.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T09",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T10",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 0
+          },
+          "score": 4,
+          "unanchored": false,
+          "improvement_comment": "\"August 1: 120.10; August 2: 79.90.\" violates the explicit request \"Output only the total and a freshness warning if any day's data is pending. Do not list daily values.\" Remove the daily breakdown while retaining the correct observed total of 200.00 and the warning that August 3's import is pending and excluded.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T11",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 3,
+          "unanchored": false,
+          "improvement_comment": "\"Using ties to even, the rounded amounts are +12.46 and -12.46.\" applies a different policy from the request and anchor, which require HALF_UP with exact ties rounded away from zero. Both requested outputs are wrong under that binding policy. Apply HALF_UP to the exact decimal inputs and return +12.47 and -12.47.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T12",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "The answer honestly identifies the unavailable future count, consistent with the supplied note that no forecast or scheduled inventory record exists. Accuracy is capped at 1 because the anchor is null.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        }
+      ],
+      "cross_analysis": []
+    },
+    {
+      "rep": 4,
+      "verdicts": [
+        {
+          "id": "T01",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The carrier reassigned the delivery truck to an urgent medical shipment\" requires carrier or incident evidence absent from this export. The anchor note supports the two-day delay but supplies no established cause. Missing tracing does not establish that no appropriate lookup occurred. Obtain the causal reference and tool trace; no invention is demonstrated.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T02",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"A payment-processor outage prevented customers from completing renewals during the final weekend of March.\" The anchor note establishes declining renewals but supplies no processor incident records or established cause. Tool tracing is absent. Obtain the incident evidence and tool trace; the available ledger does not prove or disprove this explanation.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T03",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The operator replaced a torn label roll and recalibrated the feeder\" requires maintenance or operator evidence absent from the supplied material. The anchor note establishes the forty-minute production gap, not its cause. Obtain the supporting operational record and missing tool trace; no contradiction or fabrication is established.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T04",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "\"The motor burned out unexpectedly, requiring an emergency repair.\" contradicts both the finalized f9 anchor and the captured result: \"sole_cause\": \"scheduled belt replacement\", \"motor_fault\": false, \"emergency_repair\": false. This establishes an incorrect cause and fabricated motor-failure/emergency-repair narrative introduced after a correct tool result. Report the scheduled belt replacement as the sole cause.",
+          "broken_tool": false,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T05",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "The captured tool result and answer both state \"The motor burned out unexpectedly, requiring an emergency repair.\" The finalized f12 anchor establishes scheduled belt replacement as the sole cause, no motor fault, and no emergency repair. This independently contradicts the factual answer and narrative, and establishes a broken retrieval result without evidence of stale snapshot provenance. Correct the tool's f12 incident data and report scheduled belt replacement; the earliest demonstrated defect is at the tool boundary.",
+          "broken_tool": true,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "tool"
+        },
+        {
+          "id": "T06",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T07",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "The answer matches the billing-audit anchor. Unverified: tool selection and retrieval provenance because no tool trace was captured. Obtain the trace if verification of the retrieval path is needed; its absence establishes no deduction.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T08",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "Both dates match the arrival-register anchor. Unverified: tool selection and retrieval provenance because no tool trace was captured. Obtain the trace if verification of the retrieval path is needed; its absence establishes no deduction.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T09",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T10",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 0
+          },
+          "score": 4,
+          "unanchored": false,
+          "improvement_comment": "\"August 1: 120.10; August 2: 79.90.\" violates the explicit request \"Output only the total and a freshness warning if any day's data is pending. Do not list daily values.\" Remove the daily values while retaining the correct observed total of 200.00 and the warning that August 3's import is pending and excluded.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T11",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 3,
+          "unanchored": false,
+          "improvement_comment": "\"Using ties to even, the rounded amounts are +12.46 and -12.46.\" applies a different rounding policy from the request and anchor, which require HALF_UP with exact halfway values rounded away from zero at two decimal places. The correct results are +12.47 and -12.47. Apply the specified policy; this is a demonstrated rounding error, not evidence of fabricated provenance or narrative.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T12",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "The answer appropriately acknowledges that an exact future stock count is unknown. The anchor is null, and its note confirms that the available materials contain no forecast or scheduled stock ledger for the requested date; accuracy is capped at 1.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        }
+      ],
+      "cross_analysis": []
+    },
+    {
+      "rep": 5,
+      "verdicts": [
+        {
+          "id": "T01",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The carrier reassigned the delivery truck to an urgent medical shipment\" requires carrier or incident evidence not captured here. The arrival register supports the two-day delay but establishes no cause. Obtain the missing causal reference and tool trace; missing evidence alone warrants no deduction. Accuracy is capped at 1 because the anchor is null.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T02",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"A payment-processor outage prevented customers from completing renewals during the final weekend of March.\" The available ledger establishes declining renewals but contains no processor incident records or established cause, and no tool trace was captured. Obtain the missing incident evidence and trace; absence from this export does not prove fabrication. Accuracy is capped at 1 because the anchor is null.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T03",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "Unverified: \"The operator replaced a torn label roll and recalibrated the feeder\" requires operational evidence not captured here. The activity counter establishes the forty-minute interval without labels, not its explanation. Obtain the missing operational reference and tool trace; this evidence gap alone warrants no deduction. Accuracy is capped at 1 because the anchor is null.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T04",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "\"The motor burned out unexpectedly, requiring an emergency repair.\" contradicts both the finalized f9 anchor and the captured result: \"sole_cause\": \"scheduled belt replacement\", \"motor_fault\": false, \"emergency_repair\": false. The answer replaces correctly retrieved facts with a demonstrably false causal narrative. State that the stop was solely for a scheduled belt replacement.",
+          "broken_tool": false,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T05",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 0,
+            "hallucination_free": 0,
+            "directness": 1
+          },
+          "score": 2,
+          "unanchored": false,
+          "improvement_comment": "The captured result's \"cause\": \"The motor burned out unexpectedly, requiring an emergency repair.\" and the identical answer contradict the finalized f12 anchor, which establishes scheduled belt replacement as the sole cause, no motor fault, and no emergency repair. This establishes both a broken retrieval result and a false causal narrative; the earliest demonstrated cause is the tool. Correct the tool's incident result and report scheduled belt replacement.",
+          "broken_tool": true,
+          "hallucinated_narrative": true,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "tool"
+        },
+        {
+          "id": "T06",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T07",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "The answer matches the billing audit anchor. Unverified: tool selection cannot be independently checked because no tool trace was captured. Obtain the trace if tool-path verification is required; missing trace fields do not establish that no tool was used.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T08",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "Both dates match the arrival register anchor. Unverified: tool selection cannot be independently checked because no tool trace was captured. Obtain the trace if tool-path verification is required; missing trace fields do not establish that no tool was used.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T09",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 5,
+          "unanchored": false,
+          "improvement_comment": "",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        },
+        {
+          "id": "T10",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 2,
+            "hallucination_free": 1,
+            "directness": 0
+          },
+          "score": 4,
+          "unanchored": false,
+          "improvement_comment": "\"August 1: 120.10; August 2: 79.90.\" violates the explicit request \"Output only the total and a freshness warning if any day's data is pending. Do not list daily values.\" Remove the daily breakdown while retaining the correct observed total of 200.00 and the warning that August 3's import is pending and excluded.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T11",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": false,
+          "improvement_comment": "\"Using ties to even, the rounded amounts are +12.46 and -12.46.\" uses a different rounding policy from the explicitly required HALF_UP rule. Each result has a minor numerical error of 0.01. Apply exact decimal HALF_UP rounding to return +12.47 and -12.47; the rubric's acceptance of either tie policy applies only when no policy is specified.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "model"
+        },
+        {
+          "id": "T12",
+          "dimensions": {
+            "tool_choice": 1,
+            "accuracy": 1,
+            "hallucination_free": 1,
+            "directness": 1
+          },
+          "score": 4,
+          "unanchored": true,
+          "improvement_comment": "The honest statement that an exact future stock count is unknown agrees with the supplied note that no forecast or scheduled stock ledger exists for this request. Accuracy is capped at 1 because the anchor is null; this is not a false guardrail.",
+          "broken_tool": false,
+          "hallucinated_narrative": false,
+          "false_guardrail": false,
+          "unsafe_side_effect": false,
+          "failure_source": "none"
+        }
+      ],
+      "cross_analysis": []
+    }
+  ]
+}

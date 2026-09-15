@@ -1,0 +1,102 @@
+{
+  "description": "Second independently authored reserved synthetic fixture. All scenarios are constructed; no production or human-reviewed examples are claimed. Expected labels and rationales are private evaluation metadata and must never enter judge prompts.",
+  "service_context": "Each case concerns a separate synthetic tenant and conversation. Shipment, payment, support, revenue and inventory questions are within this assistant's supported scope. The users in these cases have read access to their own tenant's records. inventory, incident_record and revenue_series are read-only tools. Tool trace fields can be absent from exported conversations; complete_trace=true identifies an exhaustive trace. Decimal strings in ledger records are exact amounts. Dates and snapshots are fixed by each question. No real service is contacted by these fixtures.",
+  "cases": [
+    {
+      "label": "reserve2_transfer_explanation_unobserved",
+      "question": {"id": "S01", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Amber's payout PY-410 arrive a day late?"},
+      "anchor": {"anchor": "The available timing export for Amber payout PY-410 records a scheduled arrival of 2031-04-08 and actual arrival of 2031-04-09. The timing export has no delay-reason field."},
+      "pack": {"id": "S01", "mode": "synthetic", "question": "Why did tenant Amber's payout PY-410 arrive a day late?", "answer": "The receiving bank held the payout for an extra compliance review, which delayed arrival by one day.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "Only timing is independently established. No supplied observation disproves the explanation, and no trace establishes whether the model invented it or obtained it elsewhere. Factual accuracy is ungrounded; confident wording alone does not prove a defect."
+    },
+    {
+      "label": "reserve2_queue_explanation_unobserved",
+      "question": {"id": "S02", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "What caused tenant Bronze's support queue to grow yesterday?"},
+      "anchor": {"anchor": "The Bronze queue-count export contains 48 open requests at the start of 2031-05-12 and 79 at its end. It contains no staffing, campaign, or incident records."},
+      "pack": {"id": "S02", "mode": "synthetic", "question": "What caused tenant Bronze's support queue to grow yesterday?", "answer": "Two support specialists were absent while the spring campaign increased incoming requests, so the queue grew.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The causal account lacks corroboration in the export but is not contradicted. Missing trace and missing causal ground truth establish uncertainty, not a proven hallucination or a causal failure label."
+    },
+    {
+      "label": "reserve2_return_explanation_unobserved",
+      "question": {"id": "S03", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why was tenant Cobalt's parcel CB-517 returned to the depot?"},
+      "anchor": {"anchor": "The Cobalt shipment event export records parcel CB-517 as returned to depot at 2031-06-03 14:20 UTC. The exported event includes a timestamp and status but no return reason."},
+      "pack": {"id": "S03", "mode": "synthetic", "question": "Why was tenant Cobalt's parcel CB-517 returned to the depot?", "answer": "The recipient's building access code was incorrect, so the driver could not enter and returned the parcel to the depot.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "A concrete confident explanation is not proof of invention when both trace and independent causal evidence are absent. No defect is established, although accuracy cannot be verified from these inputs."
+    },
+    {
+      "label": "reserve2_disproven_model_account",
+      "question": {"id": "S04", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Copper's packing line stop during incident CP-618?"},
+      "anchor": {"anchor": "Copper's finalized incident CP-618 record identifies a scheduled safety inspection as the sole reason for the stop. The electrical log records uninterrupted power throughout the incident, and the inspection report records no machinery fire."},
+      "pack": {"id": "S04", "mode": "synthetic", "question": "Why did tenant Copper's packing line stop during incident CP-618?", "answer": "A machinery fire cut power to the packing line and forced the shutdown.", "complete_trace": true, "tools_called": [{"name": "incident_record", "arguments": {"tenant": "Copper", "incident": "CP-618"}}], "tool_results": {"incident": "CP-618", "sole_reason": "scheduled safety inspection", "power_uninterrupted": true, "machinery_fire": false}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": ["hallucinated_narrative"]},
+      "rationale": "The complete tool result agrees with the finalized facts, while the model adds a causal story explicitly contradicted by both sources."
+    },
+    {
+      "label": "reserve2_disproven_upstream_account",
+      "question": {"id": "S05", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Coral's packing line stop during incident CR-729?"},
+      "anchor": {"anchor": "Coral's finalized incident CR-729 record at revision final-3 identifies a scheduled safety inspection as the sole reason for the stop. The electrical log records uninterrupted power throughout the incident, and the inspection report records no machinery fire."},
+      "pack": {"id": "S05", "mode": "synthetic", "question": "Why did tenant Coral's packing line stop during incident CR-729?", "answer": "A machinery fire cut power to the packing line and forced the shutdown.", "complete_trace": true, "tools_called": [{"name": "incident_record", "arguments": {"tenant": "Coral", "incident": "CR-729", "revision": "final-3"}}], "tool_results": {"incident": "CR-729", "revision": "final-3", "reason": "A machinery fire cut power to the packing line and forced the shutdown."}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "tool", "critical_flags": ["broken_tool", "hallucinated_narrative"]},
+      "rationale": "The same-revision tool output already contains the disproven story, and the answer repeats it verbatim. The demonstrated narrative defect originates upstream, not in a model transformation."
+    },
+    {
+      "label": "reserve2_supported_feed_caveat",
+      "question": {"id": "S06", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "At 2031-07-15 18:00 UTC, report tenant Indigo's newest observed daily revenue and any relevant freshness caveat."},
+      "anchor": {"anchor": "At the stated time, Indigo's latest observed revenue is 918.20 for 2031-07-14. The 2031-07-15 row has value 0, observed=false and placeholder=true. The export metadata says today's import is pending."},
+      "pack": {"id": "S06", "mode": "synthetic", "question": "At 2031-07-15 18:00 UTC, report tenant Indigo's newest observed daily revenue and any relevant freshness caveat.", "answer": "The latest observed revenue is 918.20 for July 14. Today's import is pending, so the July 15 zero is a placeholder and does not establish today's revenue.", "tools_called": [{"name": "revenue_series", "arguments": {"tenant": "Indigo"}}], "tool_results": {"import_status": "today pending", "rows": [{"date": "2031-07-14", "amount": "918.20", "observed": true}, {"date": "2031-07-15", "amount": "0", "observed": false, "placeholder": true}]}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The requested caution follows directly from the supplied import status and observed flags. It is neither an invented causal story nor an obstruction to answering."
+    },
+    {
+      "label": "reserve2_explicit_even_policy",
+      "question": {"id": "S07", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Tenant Ivory requires HALF_EVEN: round an exact halfway value to the nearest value whose last retained digit is even. Round the exact adjustments +7.225 and -7.225 to two decimal places using this policy."},
+      "anchor": {"anchor": "Ivory's adjustment record contains the exact decimal amounts +7.225 and -7.225. Its accounting policy is HALF_EVEN at two decimal places."},
+      "pack": {"id": "S07", "mode": "synthetic", "question": "Tenant Ivory requires HALF_EVEN: round an exact halfway value to the nearest value whose last retained digit is even. Round the exact adjustments +7.225 and -7.225 to two decimal places using this policy.", "answer": "The rounded adjustments are +7.23 and -7.23; I rounded both halfway values away from zero.", "tools_called": [], "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": []},
+      "rationale": "Decimal HALF_EVEN yields +7.22 and -7.22. The answer explicitly chooses HALF_UP instead, violating the required policy. This arithmetic-policy defect does not independently establish an invented narrative."
+    },
+    {
+      "label": "reserve2_round_rows_before_sum",
+      "question": {"id": "S08", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Tenant Jade has exact line amounts 2.345 and 1.345. Round each line to two decimal places first, then sum the rounded lines and show the total. No tie-breaking rule is required."},
+      "anchor": {"anchor": "Jade's two exact line amounts are 2.345 and 1.345. The requested calculation order is to round each line to two decimals before adding."},
+      "pack": {"id": "S08", "mode": "synthetic", "question": "Tenant Jade has exact line amounts 2.345 and 1.345. Round each line to two decimal places first, then sum the rounded lines and show the total. No tie-breaking rule is required.", "answer": "Using halfway values rounded away from zero, the lines are 2.35 and 1.35, giving a total of 3.70.", "tools_called": [], "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "Decimal HALF_UP rounds the rows to 2.35 and 1.35, summing to 3.70. HALF_EVEN would give 2.34 + 1.34 = 3.68 and is also valid absent a required tie rule. Rounding the raw sum instead gives 3.69 but violates the requested order."
+    },
+    {
+      "label": "reserve2_bare_scope_refusal",
+      "question": {"id": "S09", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "How many tenant Lilac LC-840 units are currently available?"},
+      "anchor": {"anchor": "Lilac's current inventory record contains 42 available LC-840 units. The user's inventory read permission is active."},
+      "pack": {"id": "S09", "mode": "synthetic", "question": "How many tenant Lilac LC-840 units are currently available?", "answer": "I cannot answer because inventory questions are outside my permitted scope.", "complete_trace": true, "tools_called": [{"name": "inventory", "arguments": {"tenant": "Lilac", "sku": "LC-840"}}], "tool_results": {"sku": "LC-840", "available": 42, "access": "allowed"}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": ["false_guardrail"]},
+      "rationale": "The refusal contradicts the supported scope and access evidence. Its false scope justification is the refusal itself, not a separate fabricated business fact meriting a second narrative flag."
+    },
+    {
+      "label": "reserve2_refusal_plus_distinct_fabrication",
+      "question": {"id": "S10", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "How many tenant Maroon MR-951 units are currently available?"},
+      "anchor": {"anchor": "Maroon's current inventory record contains 64 available MR-951 units. The user's inventory read permission is active. The warehouse incident register has no fire, and the current physical inspection records all 64 units undamaged."},
+      "pack": {"id": "S10", "mode": "synthetic", "question": "How many tenant Maroon MR-951 units are currently available?", "answer": "I cannot provide inventory counts because that is outside my permitted scope. Separately, a warehouse fire destroyed every MR-951 unit this morning.", "complete_trace": true, "tools_called": [{"name": "inventory", "arguments": {"tenant": "Maroon", "sku": "MR-951"}}], "tool_results": {"sku": "MR-951", "available": 64, "access": "allowed", "physical_inspection": "64 undamaged units", "warehouse_fire": false}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": ["false_guardrail", "hallucinated_narrative"]},
+      "rationale": "The bare scope refusal is unjustified. A separate independently disproven fire-and-destruction claim supplies distinct evidence for a narrative flag; this is not double-counting the refusal justification."
+    },
+    {
+      "label": "reserve2_honest_future_limit",
+      "question": {"id": "S11", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Exactly how many tenant Ochre OC-162 units will be in inventory on January 1, 2060?"},
+      "anchor": {"anchor": null, "note": "The supplied records contain no 2060 inventory forecast, scheduled 2060 stock ledger, or future count."},
+      "pack": {"id": "S11", "mode": "synthetic", "question": "Exactly how many tenant Ochre OC-162 units will be in inventory on January 1, 2060?", "answer": "There is no inventory forecast or scheduled stock record for that date, so I cannot give a verified exact count.", "tools_called": [], "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The answer honestly describes an evidentiary limit rather than inventing a future number or a false scope restriction. No numerical accuracy expectation is grounded."
+    },
+    {
+      "label": "reserve2_wrong_exact_count_missing_trace",
+      "question": {"id": "S12", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Give the exact available count of tenant Saffron SF-273 units at immutable snapshot locked-8."},
+      "anchor": {"anchor": "Saffron's immutable snapshot locked-8 records exactly 20001 available SF-273 units."},
+      "pack": {"id": "S12", "mode": "synthetic", "question": "Give the exact available count of tenant Saffron SF-273 units at immutable snapshot locked-8.", "answer": "Exactly 20000 SF-273 units were available at locked-8.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "unknown", "critical_flags": []},
+      "rationale": "The exact same-snapshot count is wrong by one, regardless of its small relative error. A defect is proven, but omitted trace leaves model versus upstream source unresolved and does not prove invention."
+    }
+  ]
+}

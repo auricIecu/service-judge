@@ -134,3 +134,6 @@ the observable pattern; say in its `comment` whether tool results backed it.
 - Do not reward verbosity; directness is its own dimension.
 - Judge each answer cold before the cross-answer pass (so pass-1 scores are
   independent).
+- Apply the rubric's evidence and rounding rules to each cross-answer member;
+  include only IDs whose own text supports the finding. Unverified claims
+  remain confidence notes, not critical cross-answer findings.

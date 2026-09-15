@@ -1,0 +1,102 @@
+{
+  "description": "Sealed independent synthetic calibration fixture for causal evidence, request scope and numerical policy. These are constructed examples, not human-reviewed production records. Keep expected and rationale out of every judge input.",
+  "service_context": "Each case is a separate conversation for its named synthetic tenant. Operations, billing, inventory and revenue questions are supported and authorized. operations_log and revenue_series are read-only tools. Missing trace fields can result from an export without tracing. complete_trace=true means all calls and results for that conversation are included. Decimal amounts are exact. Dates and snapshot identities are fixed by each question. No real service was called to construct these cases.",
+  "cases": [
+    {
+      "label": "causal_reserve_unverified_restock",
+      "question": {"id": "T01", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Acacia's refill delivery RF-314 arrive after its promised date?"},
+      "anchor": {"anchor": null, "note": "The Acacia arrival register records RF-314 as promised for 2032-02-11 and received on 2032-02-13. That register contains dates and quantities, with no delay-cause entry. No independently established cause is included in the available export."},
+      "pack": {"id": "T01", "mode": "synthetic", "question": "Why did tenant Acacia's refill delivery RF-314 arrive after its promised date?", "answer": "The carrier reassigned the delivery truck to an urgent medical shipment, which postponed RF-314 by two days.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The target is a cause, for which no reference exists. Partial timing facts do not validate or contradict the stated explanation. Missing trace and confident wording do not prove invention or another answer defect; causal accuracy is ungrounded."
+    },
+    {
+      "label": "causal_reserve_unverified_renewals",
+      "question": {"id": "T02", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "What caused tenant Alder's paid renewals to decline in March 2032?"},
+      "anchor": {"anchor": null, "note": "Alder's monthly ledger records 150 paid renewals in February 2032 and 121 in March 2032. The ledger does not contain customer interviews, cancellation reasons, or payment-processor incident records. No established cause is supplied."},
+      "pack": {"id": "T02", "mode": "synthetic", "question": "What caused tenant Alder's paid renewals to decline in March 2032?", "answer": "A payment-processor outage prevented customers from completing renewals during the final weekend of March.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The fall in renewals is established, but its cause is not. Nothing supplied proves or disproves the outage claim, and no trace localizes its origin. No critical defect is established by that uncertainty alone."
+    },
+    {
+      "label": "causal_reserve_unverified_downtime",
+      "question": {"id": "T03", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why was tenant Aspen's labeling station idle between 10:00 and 10:40 on April 6, 2032?"},
+      "anchor": {"anchor": null, "note": "Aspen's activity counter records no labels produced from 10:00 through 10:40 on 2032-04-06. The counter contains production timestamps only. No independently established explanation for that interval appears in the supplied material."},
+      "pack": {"id": "T03", "mode": "synthetic", "question": "Why was tenant Aspen's labeling station idle between 10:00 and 10:40 on April 6, 2032?", "answer": "The operator replaced a torn label roll and recalibrated the feeder, leaving the station idle for forty minutes.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "An observed idle interval is not a causal reference. The specific operator account remains unverified, and missing tool evidence does not demonstrate that the model invented it."
+    },
+    {
+      "label": "causal_reserve_model_disproven",
+      "question": {"id": "T04", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Balsa's sorter stop during incident BS-426 at finalized revision f9?"},
+      "anchor": {"anchor": "The finalized f9 incident record for Balsa BS-426 establishes a scheduled belt replacement as the sole cause of the stop. The motor inspection found no motor fault, and the maintenance log records no emergency repair."},
+      "pack": {"id": "T04", "mode": "synthetic", "question": "Why did tenant Balsa's sorter stop during incident BS-426 at finalized revision f9?", "answer": "The motor burned out unexpectedly, requiring an emergency repair.", "complete_trace": true, "tools_called": [{"name": "operations_log", "arguments": {"tenant": "Balsa", "incident": "BS-426", "revision": "f9"}}], "tool_results": {"incident": "BS-426", "revision": "f9", "sole_cause": "scheduled belt replacement", "motor_fault": false, "emergency_repair": false}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": ["hallucinated_narrative"]},
+      "rationale": "Both independent causal evidence and the complete correct tool result contradict the answer's invented emergency story, localizing the demonstrated defect to the model."
+    },
+    {
+      "label": "causal_reserve_upstream_disproven",
+      "question": {"id": "T05", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Banyan's sorter stop during incident BN-537 at finalized revision f12?"},
+      "anchor": {"anchor": "The finalized f12 incident record for Banyan BN-537 establishes a scheduled belt replacement as the sole cause of the stop. The motor inspection found no motor fault, and the maintenance log records no emergency repair."},
+      "pack": {"id": "T05", "mode": "synthetic", "question": "Why did tenant Banyan's sorter stop during incident BN-537 at finalized revision f12?", "answer": "The motor burned out unexpectedly, requiring an emergency repair.", "complete_trace": true, "tools_called": [{"name": "operations_log", "arguments": {"tenant": "Banyan", "incident": "BN-537", "revision": "f12"}}], "tool_results": {"incident": "BN-537", "revision": "f12", "cause": "The motor burned out unexpectedly, requiring an emergency repair."}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "tool", "critical_flags": ["broken_tool", "hallucinated_narrative"]},
+      "rationale": "The fabricated narrative is independently disproven at the requested revision, but appears verbatim in the tool output before the model repeats it. Content severity and causal source are distinct; the source is the tool."
+    },
+    {
+      "label": "causal_reserve_grounded_explanation_with_trace",
+      "question": {"id": "T06", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why did tenant Beech shipment BE-648 miss its departure slot?"},
+      "anchor": {"anchor": "Beech's finalized BE-648 investigation identifies an incorrect customs commodity code as the sole reason the shipment was held past its departure slot. The code was corrected before release."},
+      "pack": {"id": "T06", "mode": "synthetic", "question": "Why did tenant Beech shipment BE-648 miss its departure slot?", "answer": "An incorrect customs commodity code caused the shipment to be held until the code was corrected, so it missed its departure slot.", "tools_called": [{"name": "operations_log", "arguments": {"tenant": "Beech", "shipment": "BE-648"}}], "tool_results": {"shipment": "BE-648", "hold_reason": "incorrect customs commodity code", "held_past_departure": true, "release_condition_met": "commodity code corrected"}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The causal reference and tool output both establish the exact explanation given. This is a grounded answer to the main causal question."
+    },
+    {
+      "label": "causal_reserve_grounded_explanation_without_trace",
+      "question": {"id": "T07", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Why was tenant Boxwood's invoice BX-759 reissued?"},
+      "anchor": {"anchor": "Boxwood's BX-759 billing audit states that the original invoice used the wrong legal billing entity. The reissue corrected that entity, with quantities and prices unchanged."},
+      "pack": {"id": "T07", "mode": "synthetic", "question": "Why was tenant Boxwood's invoice BX-759 reissued?", "answer": "It was reissued to correct the legal billing entity; the quantities and prices stayed the same.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The supplied audit directly establishes the cause and unchanged fields. Missing tool trace does not negate a correct independently anchored answer."
+    },
+    {
+      "label": "causal_reserve_event_date_fact",
+      "question": {"id": "T08", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "For tenant Acacia's refill delivery RF-314, what was the promised arrival date and on what date was it received?"},
+      "anchor": {"anchor": "Acacia's RF-314 arrival register records a promised arrival of 2032-02-11 and receipt on 2032-02-13."},
+      "pack": {"id": "T08", "mode": "synthetic", "question": "For tenant Acacia's refill delivery RF-314, what was the promised arrival date and on what date was it received?", "answer": "RF-314 was promised for February 11, 2032 and received on February 13, 2032.", "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The same event facts that could not ground a causal explanation directly answer this factual date question. The nonnull anchor is sufficient and the answer matches it."
+    },
+    {
+      "label": "causal_reserve_entity_only_not_format_only",
+      "question": {"id": "T09", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Report revenue for tenant Cypress only, covering January and February 2032. A monthly breakdown is welcome; do not include any other tenant."},
+      "anchor": {"anchor": "Cypress's finalized ledger records January 2032 revenue of 410.25 and February 2032 revenue of 589.75. Both entries belong to Cypress."},
+      "pack": {"id": "T09", "mode": "synthetic", "question": "Report revenue for tenant Cypress only, covering January and February 2032. A monthly breakdown is welcome; do not include any other tenant.", "answer": "Cypress: January 410.25; February 589.75; total 1000.00.", "tools_called": [{"name": "revenue_series", "arguments": {"tenant": "Cypress", "months": ["2032-01", "2032-02"]}}], "tool_results": {"tenant": "Cypress", "rows": [{"month": "2032-01", "amount": "410.25"}, {"month": "2032-02", "amount": "589.75"}]}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "Only restricts the entity, while the user explicitly welcomes a breakdown. Decimal 410.25 + 589.75 equals 1000.00; all information concerns the authorized tenant."
+    },
+    {
+      "label": "causal_reserve_only_total_format_with_caveat",
+      "question": {"id": "T10", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "At 2032-08-03 18:00 UTC, give tenant Dogwood's total observed revenue for August 1 through August 3. Output only the total and a freshness warning if any day's data is pending. Do not list daily values."},
+      "anchor": {"anchor": "Dogwood's August 1 observed revenue is 120.10 and August 2 observed revenue is 79.90. At 2032-08-03 18:00 UTC, August 3 is an unobserved placeholder with its import pending."},
+      "pack": {"id": "T10", "mode": "synthetic", "question": "At 2032-08-03 18:00 UTC, give tenant Dogwood's total observed revenue for August 1 through August 3. Output only the total and a freshness warning if any day's data is pending. Do not list daily values.", "answer": "Total observed revenue: 200.00. August 1: 120.10; August 2: 79.90. Freshness warning: August 3's import is pending, so that day is not included in the observed total.", "tools_called": [{"name": "revenue_series", "arguments": {"tenant": "Dogwood", "from": "2032-08-01", "to": "2032-08-03"}}], "tool_results": {"tenant": "Dogwood", "rows": [{"date": "2032-08-01", "amount": "120.10", "observed": true}, {"date": "2032-08-02", "amount": "79.90", "observed": true}, {"date": "2032-08-03", "amount": "0", "observed": false, "placeholder": true, "import_status": "pending"}]}, "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": []},
+      "rationale": "Decimal 120.10 + 79.90 equals the correct 200.00 observed total, and the freshness warning is both true and required. The independently established defect is including explicitly forbidden daily values, not the warning. This is a format/instruction defect without a critical flag."
+    },
+    {
+      "label": "causal_reserve_required_rounding",
+      "question": {"id": "T11", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "Tenant Ebony requires HALF_UP rounding, with exact halfway values rounded away from zero. Apply this rule to the exact amounts +12.465 and -12.465 at two decimal places."},
+      "anchor": {"anchor": "Ebony's exact decimal inputs are +12.465 and -12.465. Its required accounting rule is HALF_UP at two decimal places."},
+      "pack": {"id": "T11", "mode": "synthetic", "question": "Tenant Ebony requires HALF_UP rounding, with exact halfway values rounded away from zero. Apply this rule to the exact amounts +12.465 and -12.465 at two decimal places.", "answer": "Using ties to even, the rounded amounts are +12.46 and -12.46.", "tools_called": [], "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "model", "critical_flags": []},
+      "rationale": "Decimal HALF_UP produces +12.47 and -12.47. The answer openly uses HALF_EVEN, which would produce its values but violates the requested business rule. This demonstrable arithmetic-policy mistake does not itself prove narrative fabrication."
+    },
+    {
+      "label": "causal_reserve_unknown_future",
+      "question": {"id": "T12", "mode": "synthetic", "type": "calibration", "split": "holdout", "question": "What exact stock count will tenant Eucalyptus have for EU-861 at noon on June 1, 2070?"},
+      "anchor": {"anchor": null, "note": "The available Eucalyptus materials contain no 2070 inventory forecast or scheduled stock ledger for EU-861."},
+      "pack": {"id": "T12", "mode": "synthetic", "question": "What exact stock count will tenant Eucalyptus have for EU-861 at noon on June 1, 2070?", "answer": "There is no forecast or scheduled inventory record for that date, so an exact future stock count is not known.", "tools_called": [], "model": "deterministic-fixture", "model_generations": 0, "error": null},
+      "expected": {"failure_source": "none", "critical_flags": []},
+      "rationale": "The answer accurately communicates the supplied evidentiary limitation and makes no invented future claim or false scope refusal. There is no grounded future numerical accuracy target."
+    }
+  ]
+}
