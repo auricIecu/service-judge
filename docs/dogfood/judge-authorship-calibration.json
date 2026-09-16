@@ -1,0 +1,42 @@
+{
+  "description": "Synthetic authorship regression cases frozen before the fix; expected labels never enter judge input.",
+  "service_context": "A synthetic read-only energy dashboard. meter_report retrieves exact values and can deterministically render text; final_response_builder in each trace identifies whether final text is copied or model-composed. All snapshots are from 2034-05-10, current request time is 2034-05-11. No real service is queried.",
+  "cases": [
+    {
+      "question": {"id": "P01", "split": "dev", "mode": "energy", "type": "presentation", "question": "Give yesterday's energy use and explicitly state the reading date."},
+      "anchor": {"anchor": "2034-05-10 consumption: 80 kWh. The reading date must be stated."},
+      "pack": {"id": "P01", "mode": "energy", "question": "Give yesterday's energy use and explicitly state the reading date.", "answer": "Consumption: 80 kWh.", "tools_called": [{"name": "meter_report", "arguments": {"date": "2034-05-10"}}], "tool_results": {"kwh": 80, "date": "2034-05-10", "rendered_answer": "Consumption: 80 kWh.", "renderer": "deterministic template"}, "final_response_builder": "Exact copy of meter_report.rendered_answer, no model composition", "complete_trace": true},
+      "expected": {"failure_source": "tool", "critical_flags": [], "dimensions": {"tool_choice": 1, "accuracy": 2, "hallucination_free": 1, "directness": 0}}
+    },
+    {
+      "question": {"id": "P02", "split": "dev", "mode": "energy", "type": "presentation", "question": "Give yesterday's energy use and explicitly state the reading date."},
+      "anchor": {"anchor": "2034-05-10 consumption: 80 kWh. The reading date must be stated."},
+      "pack": {"id": "P02", "mode": "energy", "question": "Give yesterday's energy use and explicitly state the reading date.", "answer": "Consumption: 80 kWh.", "tools_called": [{"name": "meter_report", "arguments": {"date": "2034-05-10"}}], "tool_results": {"kwh": 80, "date": "2034-05-10", "rendered_answer": "Consumption: 80 kWh, reading date 2034-05-10."}, "final_response_builder": "Model composed the final answer from the captured result", "complete_trace": true},
+      "expected": {"failure_source": "model", "critical_flags": [], "dimensions": {"tool_choice": 1, "accuracy": 2, "hallucination_free": 1, "directness": 0}}
+    },
+    {
+      "question": {"id": "P03", "split": "dev", "mode": "energy", "type": "presentation", "question": "Give yesterday's energy use and explicitly state the reading date."},
+      "anchor": {"anchor": "2034-05-10 consumption: 80 kWh. The reading date must be stated."},
+      "pack": {"id": "P03", "mode": "energy", "question": "Give yesterday's energy use and explicitly state the reading date.", "answer": "Consumption: 80 kWh.", "tools_called": ["meter_report"], "trace_note": "Result payload and final-response assembly trace were not exported."},
+      "expected": {"failure_source": "unknown", "critical_flags": [], "dimensions": {"tool_choice": 1, "accuracy": 2, "hallucination_free": 1, "directness": 0}}
+    },
+    {
+      "question": {"id": "P04", "split": "dev", "mode": "energy", "type": "presentation", "question": "Give only the energy-use total, without a building breakdown."},
+      "anchor": {"anchor": "2034-05-10: North 30 kWh, South 50 kWh; total 80 kWh."},
+      "pack": {"id": "P04", "mode": "energy", "question": "Give only the energy-use total, without a building breakdown.", "answer": "Total: 80 kWh. North: 30 kWh; South: 50 kWh.", "tools_called": ["meter_report"], "tool_results": {"total": 80, "rendered_answer": "Total: 80 kWh. North: 30 kWh; South: 50 kWh.", "renderer": "deterministic template"}, "final_response_builder": "Exact copy of meter_report.rendered_answer, no model composition", "complete_trace": true},
+      "expected": {"failure_source": "tool", "critical_flags": [], "dimensions": {"tool_choice": 1, "accuracy": 2, "hallucination_free": 1, "directness": 0}}
+    },
+    {
+      "question": {"id": "P05", "split": "holdout", "mode": "energy", "type": "factual", "question": "How much energy was used on 2034-05-10?"},
+      "anchor": {"anchor": "2034-05-10 consumption: 80 kWh."},
+      "pack": {"id": "P05", "mode": "energy", "question": "How much energy was used on 2034-05-10?", "answer": "80 kWh on 2034-05-10.", "tools_called": ["meter_report"], "tool_results": {"kwh": 80, "date": "2034-05-10"}, "final_response_builder": "Model composed the final answer from the captured result", "complete_trace": true},
+      "expected": {"failure_source": "none", "critical_flags": [], "dimensions": {"tool_choice": 1, "accuracy": 2, "hallucination_free": 1, "directness": 1}}
+    },
+    {
+      "question": {"id": "P06", "split": "holdout", "mode": "energy", "type": "factual", "question": "How much energy was used on 2034-05-10?"},
+      "anchor": {"anchor": "2034-05-10 consumption: 80 kWh. This is the authoritative finalized revision used by meter_report."},
+      "pack": {"id": "P06", "mode": "energy", "question": "How much energy was used on 2034-05-10?", "answer": "800 kWh on 2034-05-10.", "tools_called": ["meter_report"], "tool_results": {"kwh": 800, "date": "2034-05-10"}, "final_response_builder": "Model composed the final answer from the captured result", "complete_trace": true},
+      "expected": {"failure_source": "tool", "critical_flags": ["broken_tool"], "dimensions": {"tool_choice": 1, "accuracy": 0, "hallucination_free": 1, "directness": 1}}
+    }
+  ]
+}

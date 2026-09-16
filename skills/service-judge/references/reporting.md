@@ -34,6 +34,10 @@ Fill `assets/report-template.md`. Rules:
 - **Attribution:** report `failure_source` for every non-pass answer. Preserve
   `unknown` when tool results or anchor provenance do not support a stronger
   claim; never turn uncertainty into a model, tool, or anchor diagnosis.
+- **Evidence limits:** surface `Unverified:` comments even on 5/5 answers.
+  Separate demonstrated defects from claims awaiting evidence; false flags
+  and a high score do not establish that unverified claims are true. Preserve
+  the offending excerpt and its reference when condensing deduction comments.
 - **ROI ordering of proposals:** (questions fixed × severity) / effort.
   A broken tool whose data exists elsewhere is almost always #1 — it's a
   wiring fix that converts ❌s into ✅s.

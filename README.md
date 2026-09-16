@@ -91,13 +91,29 @@ The second skill, `service-judge-loop`, turns a one-off grade into a measured
 iteration. Ask for it in words — *"keep evaluating my bot until it passes"* —
 and it freezes a golden question set, then runs:
 
-    probe + judge → you fix your service → the SAME exam again → compare
+    baseline → authorized fix → re-evaluate → compare with frozen goals
 
-It stops on its own for four reasons: the gates passed, a fix caused a
+Manual mode waits for you to fix the service. With explicit **autopilot**
+authorization, your coding agent receives the dev-only fix brief, edits the
+allowed service repo, runs authorized tests, commits the fix, and repeats.
+`loop.py` measures and produces that brief; the agent running the skill drives
+the coder. It is not a standalone background repair daemon or a service you
+deploy inside your chatbot.
+
+Before the baseline, choose the quality thresholds in `goals`, the environment,
+allowed actions, `max_iterations`, and (for adaptive probing) `answer_budget`.
+For example, `"goals": {"min_accuracy_pct": 98, "min_directness_pct": 100}`
+overrides those two recommended thresholds while retaining the other defaults.
+The engine must meet all configured thresholds AND the non-configurable
+critical gates. A passing 4/5 answer can still need correction to meet them.
+See [the loop skill](skills/service-judge-loop/SKILL.md) for the full config.
+
+It stops when the gates passed, a fix caused a
 regression (a lower dev score or any new critical flag/cross-answer finding
 between full runs; it tells you — it never reverts), the score stagnated (<2pp and no
-fewer critical findings twice in a row), or the iteration limit was reached. It
-measures; it never edits your service.
+fewer critical findings twice in a row), the iteration/budget limit was reached,
+or no actionable dev work remains without exposing holdout. It does not promise
+to run indefinitely or silently lower the target to obtain a pass.
 
 The golden set carries a dev/holdout split, and between iterations you only
 ever see the holdout **aggregate**, never the individual questions — so your
@@ -137,7 +153,11 @@ skill optimises for asking as few questions as possible:
 
 ## Safety
 
-Read-only by design: the skill only ever `SELECT`s, never prints credentials, never touches your product code (eval artifacts only, in a location you approve), tags every probe with an `eval-` session ID, and asks which environment (staging/production) before probing.
+Evaluation and ground-truth discovery are read-only: no database mutations or
+credential disclosure; probes use an `eval-` session ID and an agreed environment.
+Autopilot is a separate, explicitly authorized workflow: product edits, tests,
+commits and staging deployment each have their own permission. It never deploys
+production or changes the frozen questions, anchors, rubric or goals to pass.
 
 ## License
 

@@ -85,6 +85,16 @@ rules protect — keyed by canonical question id:
 ```
 
 A question is anchored only when its key exists and `anchor` is not `null`.
+Before freezing, check that the reference answers the proposition actually
+asked, at the requested entity, time and precision. An event's date or status
+does not anchor its cause. When only partial facts are available, use
+`"anchor": null` and preserve those facts and their provenance in `note`;
+do not count them as accuracy coverage for a different proposition. For
+example, delivery timestamps can anchor "when?" but not "why was it late?".
+This applicability check happens before judging and is independent of the
+service's answer. If a frozen run used an inapplicable anchor, preserve that
+run and create a separately identified corrected snapshot/run; never rewrite
+its history or silently change which answers count as anchored.
 Questions with no extractable anchor use `"anchor": null` and can only certify
 behavior dimensions plus plausibility. If more than half the set has no anchor,
 warn the user before probing: exact accuracy certification will be limited by

@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.0.2 — 2026-09-16
+
+- **Cause is not severity:** deterministic tool-rendered omissions can now use
+  `failure_source: tool` without falsely triggering `broken_tool`. Captured
+  evidence is still required; actual retrieval failures and incorrect tool
+  facts remain critical. Missing authorship evidence stays `unknown`.
+- **No lost 4/5 fixes:** dev answers with demonstrated deductions remain in
+  fix briefs and adaptive focused packs when configured goals are not met.
+  Clean unanchored answers at their 4/5 ceiling are not correction targets.
+  New verdicts cannot claim `none` below that question's score ceiling; legacy
+  history still selects deducted answers by score. Re-judge affected saved
+  verdicts without re-probing when upgrading.
+- **Focused handoff:** a clean focused pass moves to full verification without
+  handing the coder an empty brief or asking for an empty commit.
+- **Evidence and accuracy calibration:** ship the previously unpublished
+  evidence, rounding and factual-claim refinements with frozen synthetic
+  calibration records. These are measured examples, not universal accuracy
+  guarantees. See [calibration and loop evidence](docs/dogfood/2026-09-16-authorship-calibration.md).
+- **Workflow documentation:** distinguish the read-only evaluation engine
+  from the explicitly authorized, agent-driven repair loop; document chosen
+  thresholds, budgets, stop conditions and holdout boundaries.
+
 ## 3.0.1 — 2026-09-09
 
 - **Stop on new critical findings:** consecutive full runs now stop on a new
