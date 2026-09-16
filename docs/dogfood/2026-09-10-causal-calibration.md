@@ -142,7 +142,8 @@ puede diferir del actual, pero deja de diagnosticar una avería de la carga
 automática a partir únicamente de una fecha antigua. Sus tres llamadores
 reciben el mismo arreglo. La nueva regresión falla sobre la fuente desplegada
 original y pasa tras el parche; pasan las 10 pruebas de frescura y las 30 de
-disponibilidad. [Parche portable, incluida la regresión](orito-freshness.patch).
+disponibilidad. Parche portable `orito-freshness.patch`, incluida la regresión,
+conservado como artefacto privado y no distribuido con Service Judge.
 
 ### Primera candidata: mejora localizada, canary no limpio
 
@@ -190,7 +191,8 @@ mensajes fallaron en un test antes de corregirse. La versión final no fuerza
 una confirmación cuando se solicita además esa información. Son siete
 pruebas nuevas de intención y callbacks; junto con las anteriores, **47 tests
 pasan**. El comportamiento de consultas afirmativas y de inventario vacío
-está cubierto. [Parche de confirmación y regresiones](orito-catalog-confirmation.patch).
+está cubierto. El parche `orito-catalog-confirmation.patch`, con sus regresiones,
+se conserva como artefacto privado y no se distribuye con Service Judge.
 También se ejecutaron los 101 tests heredados de callbacks de Orito: se
 actualizó una expectativa literal por el nuevo mensaje compartido «Sí,
 manejamos…», manteniendo la comprobación del alias exacto. El conjunto reunido

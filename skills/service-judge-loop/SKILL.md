@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "3.0.1"
+  version: "3.0.2"
 ---
 
 # service-judge-loop
@@ -297,6 +297,10 @@ delete before retrying.
    re-grading the same rejected verdicts. The raw output stays in
    `<iter>/raw/judge-out.json` for inspection.
 
+   Since 3.0.2, a verdict with a deduction must name a non-`none` cause even
+   at a passing score. Older 4/5 or 4.5/5 anchored verdicts claiming `none`
+   require re-judgment of the saved pack, not new service probes.
+
    Verdict files created by 2.0.1 do not contain `failure_source` or
    `unsafe_side_effect` and therefore return `invalid_judgment`. Archive or
    remove only `verdicts.json` and `cross-analysis.json`, then rerun to judge
@@ -341,7 +345,7 @@ delete before retrying.
     Between iterations, show the user the dev detail but ONLY the aggregate
     and gap for holdout (D4 — holdout questions must not leak into fixes).
     The stdout payload is already dev-only: `dev_questions_below_4` (score
-    under 4), `dev_issues` (score under 4 or any critical flag), and
+    under 4), `dev_issues` (any demonstrated deduction or critical flag), and
     `regressed_ids` (passing at the last measurement, not now); holdout appears
     only as `holdout` percent.
 11. **When it stops,** report why (goals / regression / stagnation / limit),
@@ -352,12 +356,15 @@ delete before retrying.
 ## Autopilot fix cycle
 
 On `needs_fix`, `loop.py` writes `iter-NN/fix-brief.json` from validated
-verdicts. It contains only failing or critical dev scores/comments with causal
+verdicts. It contains only defective dev scores/comments with causal
 source and critical flags, dev-only regressions, all-dev cross-analysis groups,
 aggregate holdout percent/gap, and gate results. A question regresses when it
 was passing at its last measurement — score at least 4 with every critical
 flag false — and no longer is, so a fix that keeps a 5/5 but introduces an
 unsafe side effect is a regression.
+Passing verdicts (for example 4/5 with a lost directness point) remain fix
+inputs when the run has not met its configured goals. Clean unanchored 4/5
+answers at their score ceiling are not defects.
 Mixed dev/holdout groups and every holdout id/comment are absent at the source.
 It also carries `repo` and `allowed_actions`, copied from `authorization.json`:
 the fixer is the only participant that touches the machine, so the authorized
@@ -374,6 +381,10 @@ that inline brief. This is a contract boundary, not a sandbox; the fixer still
 has shell access.
 
 For every `needs_fix` iteration:
+
+If `fix_brief` is absent after `FOCUSED PASSED`, skip the coder and commit:
+run the full evaluation next. A clean focused pass cannot certify and does
+not justify an empty correction. Otherwise:
 
 1. Group the brief by root cause and choose the best impact/effort fix.
 2. Apply only the authorized product-code change, inside the brief's `repo`.

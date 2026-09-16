@@ -119,7 +119,8 @@ Every verdict must set `failure_source` to the primary cause:
 - `none`: no demonstrated defect (record unverified claims separately).
 - `model`: the answer contradicts a captured tool result, invents tool
   arguments, or otherwise introduces the defect after the tool boundary.
-- `tool`: a captured tool result itself fails or contradicts the anchor.
+- `tool`: the defect is already present in a captured tool result, including
+  deterministic tool-rendered text inherited by the final answer.
 - `anchor`: evidence shows the snapshot provenance or data revision is stale.
 - `unknown`: the available evidence cannot distinguish model, tool, and anchor,
   including a technical-failure reply whose tool result was not captured.
@@ -133,12 +134,20 @@ accuracy points describe the snapshot mismatch, not a proven service error.
 An answer/anchor mismatch alone never proves that the snapshot is stale.
 
 Use a non-`none` source for every demonstrated deduction, including directness
-or tool-choice deductions on a passing answer. An observable formatting or
-scope violation in the final answer can establish `model` without a tool
-result. `none` is required when the score is at its ceiling (5, or 4 for an
+or tool-choice deductions on a passing answer. For an omission or formatting
+defect, compare the captured tool output with the final answer and the response
+assembly contract: a defect inherited from deterministic tool-rendered text
+is `tool`; correct tool content that the model drops or changes is `model`.
+When the tool/assembly trace is missing and either origin is possible, use
+`unknown`, not `model` merely because the defect is visible in the final answer.
+An explicitly model-authored answer with no upstream tool can still establish
+`model`. `none` is required when the score is at its ceiling (5, or 4 for an
 unanchored answer) with every critical flag false: no lost point and no flag
-means no defect to attribute. `tool` requires `broken_tool: true` and captured
-`tool_results`. `broken_tool: true` takes `failure_source: tool` when the pack
+means no defect to attribute. `tool` requires captured `tool_results`, not a
+critical flag. Determine severity independently: a presentation-only omission
+with correct retrieved facts loses directness but does not by itself set
+`broken_tool`; incorrect retrieved facts or technical retrieval failures still
+do, as defined below. `broken_tool: true` takes `failure_source: tool` when the pack
 row has captured `tool_results` and `unknown` when it does not; never `model`,
 `anchor`, or `none`. Captured means a non-blank string, a number, a non-empty
 object, or a list holding at least one of those; `null`, booleans, empties,

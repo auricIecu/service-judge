@@ -152,7 +152,8 @@ de respuestas nuevas de un LLM ni del endpoint desplegado. No se supone que
 esa copia local sea la revisión de staging. La validación completa de Orito
 en staging queda pendiente.
 
-[Parche portable con su prueba](orito-freshness.patch), aplicado y comprobado
+Parche portable `orito-freshness.patch`, conservado como artefacto privado,
+con su prueba aplicada y comprobada
 en la copia local; no desplegado ni integrado en la rama principal de Orito.
 
 ## Verificación y alcance

@@ -145,14 +145,26 @@ for wrong_source in ("model", "anchor", "none"):
     check(f"broken_tool cannot be attributed to {wrong_source}",
           [row["id"] for row in wrong["per_question"]] == ["Q2"])
 
-ungated_tool_failure = compute_grade(
-    [v("Q1", 4, dimensions={"tool_choice": 1, "accuracy": 1,
-                              "hallucination_free": 1, "directness": 1},
+tool_presentation_failure = compute_grade(
+    [v("Q1", 4, dimensions={"tool_choice": 1, "accuracy": 2,
+                              "hallucination_free": 1, "directness": 0},
        failure_source="tool"), v("Q2", 5)],
-    TOOL_EVIDENCE_QS, "m", [], [], GOALS, ANCHORS,
+    [QS[0] | {"tool_results": {"rendered_answer": "one"}}, QS[1]],
+    "m", [], [], GOALS, ANCHORS,
 )
-check("tool-caused defects cannot omit the broken-tool hard gate",
-      [row["id"] for row in ungated_tool_failure["per_question"]] == ["Q2"])
+check("a tool-rendered presentation omission keeps its cause without a critical flag",
+      len(tool_presentation_failure["per_question"]) == 2
+      and tool_presentation_failure["per_question"][0]["failure_source"] == "tool"
+      and tool_presentation_failure["hard_gate"]
+      and not tool_presentation_failure["goals"]["met"])
+
+unsupported_presentation_failure = compute_grade(
+    [v("Q1", 4, dimensions={"tool_choice": 1, "accuracy": 2,
+                              "hallucination_free": 1, "directness": 0},
+       failure_source="tool"), v("Q2", 5)], QS, "m", [], [], GOALS, ANCHORS,
+)
+check("noncritical tool attribution still requires captured tool evidence",
+      [row["id"] for row in unsupported_presentation_failure["per_question"]] == ["Q2"])
 
 unattributed_critical = compute_grade(
     [v("Q1", 5, unsafe_side_effect=True, failure_source="none"), v("Q2", 5)],
@@ -169,6 +181,18 @@ unattributed_warning = compute_grade(
 )
 check("non-passing verdicts cannot claim that no defect exists",
       [row["id"] for row in unattributed_warning["per_question"]] == ["Q2"])
+
+unattributed_passing = compute_grade(
+    [v("Q1", 4, dimensions={"tool_choice": 1, "accuracy": 2,
+                             "hallucination_free": 1, "directness": 0},
+       failure_source="none"), v("Q2", 5)], QS, "m", [], [], GOALS, ANCHORS,
+)
+check("passing anchored deductions cannot claim no defect",
+      [row["id"] for row in unattributed_passing["per_question"]] == ["Q2"])
+check("historical 4/5 anchored deductions remain actionable even with source none",
+      loop.needs_improvement({"score": 4, "unanchored": False, "failure_source": "none"}))
+check("clean unanchored 4/5 ceiling is not a correction target",
+      not loop.needs_improvement({"score": 4, "unanchored": True, "failure_source": "none"}))
 
 stale_anchor = compute_grade([v("Q1", 3, dimensions={"tool_choice": 1,
                                                        "accuracy": 0,
@@ -464,7 +488,7 @@ assert select_questions(AQ, [base], cfg, 2)[0] == selected       # deterministic
 fixed = json.loads(json.dumps(base))
 for row in fixed["per_question"]:
     if row["id"] == "Q7":
-        row["score"] = 4
+        row["score"] = 5
 shrunk, _, _ = select_questions(AQ, [base, fixed], cfg | {"regression_sample": 0}, 3)
 assert "Q7" not in [q["id"] for q in shrunk]                    # latest score wins
 
@@ -473,12 +497,18 @@ assert is_full and len(full) == len(AQ) and reason == "no_full_baseline"
 passing = json.loads(json.dumps(base))
 for row in passing["per_question"]:
     if row["id"] != "Q5":
-        row["score"] = 4
+        row["score"] = 5
 assert select_questions(AQ, [passing], cfg, 2)[1:] == (True, "no_dev_failures")
 critical_passing = json.loads(json.dumps(passing))
 critical_passing["per_question"][0]["unsafe_side_effect"] = True
 selected, is_full, reason = select_questions(AQ, [critical_passing], cfg, 2)
 check("adaptive probing focuses critical findings even when their score passes",
+      not is_full and reason == "focused" and selected[0]["id"] == "Q1")
+presentation_passing = json.loads(json.dumps(passing))
+presentation_passing["per_question"][0]["score"] = 4
+presentation_passing["per_question"][0]["failure_source"] = "tool"
+selected, is_full, reason = select_questions(AQ, [presentation_passing], cfg, 2)
+check("adaptive probing focuses noncritical deductions even at 4/5",
       not is_full and reason == "focused" and selected[0]["id"] == "Q1")
 tight = cfg | {"_probed_count": 20}
 assert select_questions(AQ, [base], tight, 2)[1:] == (True, "focused_exceeds_budget")
@@ -625,6 +655,15 @@ BRIEF_AUTH = {"repo": "/srv/service",
               "allowed_actions": {"edit_product_code": True, "run_tests": False,
                                   "restart_local": False, "deploy_staging": False,
                                   "commit": True}}
+presentation_brief = loop.build_fix_brief(
+    [v("Q1", 4, failure_source="tool", dimensions={"tool_choice": 1,
+        "accuracy": 2, "hallucination_free": 1, "directness": 0}) | {
+        "improvement_comment": "Retain the required date in the tool template."},
+     v("Q2", 5)], QS, tool_presentation_failure, [], BRIEF_AUTH)
+check("a 4/5 presentation defect remains actionable when run goals fail",
+      loop.brief_is_actionable(presentation_brief)
+      and [row["id"] for row in presentation_brief["dev"]] == ["Q1"]
+      and presentation_brief["dev"][0]["critical_flags"] == [])
 brief = loop.build_fix_brief(brief_verdicts, QS, brief_grade, ["Q1", "Q2"],
                              BRIEF_AUTH)
 brief_text = json.dumps(brief)
@@ -1388,6 +1427,9 @@ with tempfile.TemporaryDirectory() as d:
         check("focused autopilot never stops as nothing actionable",
               rc == 0 and msg["status"] == "needs_fix"
               and msg["reason"].startswith("FOCUSED PASSED"))
+        check("a clean focused run requests full evaluation without an empty coder handoff",
+              "fix_brief" not in msg
+              and not (focused_iter / "fix-brief.json").exists())
     finally:
         loop.collect_git_preflight = old_collect
 

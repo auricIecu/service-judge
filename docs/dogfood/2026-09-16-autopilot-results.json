@@ -1,0 +1,1963 @@
+{
+  "description": "Actual synthetic service execution with dev-only coder agents. Both attempts retained.",
+  "attempts": [
+    {
+      "config": {
+        "schema_version": 2,
+        "golden_sha256": "a143bc2d4c5220c72f15f7c799de014f313c28c04cb671fac366ab6bf5eb6173",
+        "judge": "codex/gpt-6-astra/high",
+        "service_context": "Local synthetic read-only energy reporting. meter_report retrieves and deterministically renders all final text. The response is copied exactly from tool_results.rendered_answer, with no model composition. All buildings are supported. Only requested fields should be rendered.",
+        "goals": {
+          "min_tool_choice_pct": 100,
+          "min_accuracy_pct": 100,
+          "min_hallucination_free_pct": 100,
+          "min_directness_pct": 100,
+          "min_pass_rate_pct": 100,
+          "min_holdout_score_pct": 100,
+          "max_dev_holdout_gap_pp": 0,
+          "min_anchor_coverage_pct": 100,
+          "profile": "synthetic-acceptance-100"
+        },
+        "max_iterations": 3,
+        "probe_strategy": "adaptive",
+        "focused_max_questions": 1,
+        "regression_sample": 0,
+        "answer_budget": 9,
+        "autonomy": {
+          "mode": "autopilot",
+          "edit_product_code": true,
+          "run_tests": true,
+          "restart_local": false,
+          "deploy_staging": false,
+          "commit": true
+        }
+      },
+      "questions": [
+        {
+          "id": "D1",
+          "mode": "meter",
+          "type": "date",
+          "split": "dev",
+          "question": "Give North's energy use and explicitly state the reading date."
+        },
+        {
+          "id": "D2",
+          "mode": "meter",
+          "type": "total",
+          "split": "dev",
+          "question": "Give South's energy use, only kWh, no date."
+        },
+        {
+          "id": "R1",
+          "mode": "meter",
+          "type": "total",
+          "split": "holdout",
+          "question": "Give East's energy use, only kWh, no date."
+        },
+        {
+          "id": "R2",
+          "mode": "meter",
+          "type": "total",
+          "split": "holdout",
+          "question": "Give West's energy use, only kWh, no date."
+        }
+      ],
+      "anchors": {
+        "D1": {
+          "anchor": "North: 80 kWh, reading date 2034-05-10."
+        },
+        "D2": {
+          "anchor": "South: 60 kWh, reading date 2034-05-10."
+        },
+        "R1": {
+          "anchor": "East: 20 kWh, reading date 2034-05-10."
+        },
+        "R2": {
+          "anchor": "West: 40 kWh, reading date 2034-05-10."
+        }
+      },
+      "history": [
+        {
+          "total": 19.0,
+          "max": 20,
+          "percent": 95,
+          "judge": {
+            "label": "codex/gpt-6-astra/high",
+            "cmd_sha256": null
+          },
+          "per_question": [
+            {
+              "id": "D1",
+              "split": "dev",
+              "score": 4.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "tool",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "D2",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R1",
+              "split": "holdout",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R2",
+              "split": "holdout",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            }
+          ],
+          "dev": {
+            "total": 9.0,
+            "max": 10,
+            "percent": 90
+          },
+          "holdout": {
+            "total": 10.0,
+            "max": 10,
+            "percent": 100
+          },
+          "gap_pp": -10,
+          "accuracy_pct": 100,
+          "tool_choice_pct": 100,
+          "hallucination_free_pct": 100,
+          "directness_pct": 75,
+          "pass_rate_pct": 100,
+          "anchor_coverage_pct": 100,
+          "holdout_score_pct": 100,
+          "unanchored_block": {
+            "count": 0,
+            "percent": 0,
+            "dimensions_pct": {
+              "tool_choice": null,
+              "accuracy": null,
+              "hallucination_free": null,
+              "directness": null
+            }
+          },
+          "hard_failures": [],
+          "cross_analysis": [],
+          "hard_gate": true,
+          "goals": {
+            "met": false,
+            "detail": [
+              {
+                "metric": "tool_choice_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "accuracy_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "hallucination_free_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "directness_pct",
+                "target": 100,
+                "actual": 75,
+                "met": false
+              },
+              {
+                "metric": "pass_rate_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "holdout_score_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "anchor_coverage_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "dev_holdout_gap_pp",
+                "target": 0,
+                "actual": -10,
+                "met": true
+              },
+              {
+                "metric": "anchored_dev_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "anchored_holdout_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "certifiable_accuracy",
+                "target": "at least one anchor",
+                "actual": 4,
+                "met": true
+              }
+            ]
+          },
+          "degradations": [],
+          "full": true,
+          "probed": 4
+        },
+        {
+          "total": 5.0,
+          "max": 5,
+          "percent": 100,
+          "judge": {
+            "label": "codex/gpt-6-astra/high",
+            "cmd_sha256": null
+          },
+          "per_question": [
+            {
+              "id": "D1",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            }
+          ],
+          "dev": {
+            "total": 5.0,
+            "max": 5,
+            "percent": 100
+          },
+          "holdout": {
+            "total": 0,
+            "max": 0,
+            "percent": null
+          },
+          "gap_pp": null,
+          "accuracy_pct": 100,
+          "tool_choice_pct": 100,
+          "hallucination_free_pct": 100,
+          "directness_pct": 100,
+          "pass_rate_pct": 100,
+          "anchor_coverage_pct": 100,
+          "holdout_score_pct": null,
+          "unanchored_block": {
+            "count": 0,
+            "percent": 0,
+            "dimensions_pct": {
+              "tool_choice": null,
+              "accuracy": null,
+              "hallucination_free": null,
+              "directness": null
+            }
+          },
+          "hard_failures": [],
+          "cross_analysis": [],
+          "hard_gate": true,
+          "degradations": [],
+          "full": false,
+          "probed": 1
+        },
+        {
+          "total": 17.0,
+          "max": 20,
+          "percent": 85,
+          "judge": {
+            "label": "codex/gpt-6-astra/high",
+            "cmd_sha256": null
+          },
+          "per_question": [
+            {
+              "id": "D1",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "D2",
+              "split": "dev",
+              "score": 4.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "tool",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R1",
+              "split": "holdout",
+              "score": 4.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "tool",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R2",
+              "split": "holdout",
+              "score": 4.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "tool",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            }
+          ],
+          "dev": {
+            "total": 9.0,
+            "max": 10,
+            "percent": 90
+          },
+          "holdout": {
+            "total": 8.0,
+            "max": 10,
+            "percent": 80
+          },
+          "gap_pp": 10,
+          "accuracy_pct": 100,
+          "tool_choice_pct": 100,
+          "hallucination_free_pct": 100,
+          "directness_pct": 25,
+          "pass_rate_pct": 100,
+          "anchor_coverage_pct": 100,
+          "holdout_score_pct": 80,
+          "unanchored_block": {
+            "count": 0,
+            "percent": 0,
+            "dimensions_pct": {
+              "tool_choice": null,
+              "accuracy": null,
+              "hallucination_free": null,
+              "directness": null
+            }
+          },
+          "hard_failures": [],
+          "cross_analysis": [],
+          "hard_gate": true,
+          "goals": {
+            "met": false,
+            "detail": [
+              {
+                "metric": "tool_choice_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "accuracy_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "hallucination_free_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "directness_pct",
+                "target": 100,
+                "actual": 25,
+                "met": false
+              },
+              {
+                "metric": "pass_rate_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "holdout_score_pct",
+                "target": 100,
+                "actual": 80,
+                "met": false
+              },
+              {
+                "metric": "anchor_coverage_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "dev_holdout_gap_pp",
+                "target": 0,
+                "actual": 10,
+                "met": false
+              },
+              {
+                "metric": "anchored_dev_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "anchored_holdout_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "certifiable_accuracy",
+                "target": "at least one anchor",
+                "actual": 4,
+                "met": true
+              }
+            ]
+          },
+          "degradations": [],
+          "full": true,
+          "probed": 4
+        }
+      ],
+      "iterations": [
+        {
+          "selection": {
+            "selected_ids": [
+              "D1",
+              "D2",
+              "R1",
+              "R2"
+            ],
+            "full": true,
+            "reason": "no_full_baseline",
+            "strategy": "adaptive"
+          },
+          "pack": [
+            {
+              "id": "D1",
+              "mode": "meter",
+              "question": "Give North's energy use and explicitly state the reading date.",
+              "answer": "North: 80 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "north"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "north",
+                "kwh": 80,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "North: 80 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "D2",
+              "mode": "meter",
+              "question": "Give South's energy use, only kWh, no date.",
+              "answer": "South: 60 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "south"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "south",
+                "kwh": 60,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "South: 60 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R1",
+              "mode": "meter",
+              "question": "Give East's energy use, only kWh, no date.",
+              "answer": "East: 20 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "east"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "east",
+                "kwh": 20,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "East: 20 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R2",
+              "mode": "meter",
+              "question": "Give West's energy use, only kWh, no date.",
+              "answer": "West: 40 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "west"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "west",
+                "kwh": 40,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "West: 40 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            }
+          ],
+          "verdicts": [
+            {
+              "id": "D1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "score": 4,
+              "unanchored": false,
+              "improvement_comment": "The request says \"explicitly state the reading date\", but the answer and tool_results.rendered_answer both contain only \"North: 80 kWh.\" The anchor and tool_results.reading_date establish 2034-05-10. Include that date in the deterministic rendered answer. This is a presentation omission inherited from the tool; the retrieved facts are correct.",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "tool"
+            },
+            {
+              "id": "D2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "R1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "R2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            }
+          ],
+          "cross_analysis": [],
+          "coder_brief": {
+            "repo": "<isolated synthetic repo>",
+            "allowed_actions": {
+              "edit_product_code": true,
+              "run_tests": true,
+              "restart_local": false,
+              "deploy_staging": false,
+              "commit": true
+            },
+            "dev": [
+              {
+                "id": "D1",
+                "score": 4.0,
+                "improvement_comment": "The request says \"explicitly state the reading date\", but the answer and tool_results.rendered_answer both contain only \"North: 80 kWh.\" The anchor and tool_results.reading_date establish 2034-05-10. Include that date in the deterministic rendered answer. This is a presentation omission inherited from the tool; the retrieved facts are correct.",
+                "failure_source": "tool",
+                "critical_flags": []
+              }
+            ],
+            "regressed_ids": [],
+            "cross_analysis": [],
+            "holdout": {
+              "percent": 100,
+              "gap_pp": -10
+            },
+            "gates": {
+              "hard_gate": true,
+              "goals_met": false
+            }
+          },
+          "fix": {
+            "sha": "0fdd631ebf8f168fa40dc5fec1a4c9b5f2e8d682",
+            "files": [
+              "meter_service.py",
+              "test_meter_service.py"
+            ],
+            "tests": [
+              "python3 -m unittest discover -v",
+              "git diff --check"
+            ],
+            "review": "Checked product-only commit and repeated the passing regression test. Final full evaluation remains required."
+          }
+        },
+        {
+          "selection": {
+            "selected_ids": [
+              "D1"
+            ],
+            "full": false,
+            "reason": "focused",
+            "strategy": "adaptive"
+          },
+          "pack": [
+            {
+              "id": "D1",
+              "mode": "meter",
+              "question": "Give North's energy use and explicitly state the reading date.",
+              "answer": "North: 80 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "north"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "north",
+                "kwh": 80,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "North: 80 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            }
+          ],
+          "verdicts": [
+            {
+              "id": "D1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            }
+          ],
+          "cross_analysis": []
+        },
+        {
+          "selection": {
+            "selected_ids": [
+              "D1",
+              "D2",
+              "R1",
+              "R2"
+            ],
+            "full": true,
+            "reason": "final_iteration",
+            "strategy": "adaptive"
+          },
+          "pack": [
+            {
+              "id": "D1",
+              "mode": "meter",
+              "question": "Give North's energy use and explicitly state the reading date.",
+              "answer": "North: 80 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "north"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "north",
+                "kwh": 80,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "North: 80 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "D2",
+              "mode": "meter",
+              "question": "Give South's energy use, only kWh, no date.",
+              "answer": "South: 60 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "south"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "south",
+                "kwh": 60,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "South: 60 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R1",
+              "mode": "meter",
+              "question": "Give East's energy use, only kWh, no date.",
+              "answer": "East: 20 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "east"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "east",
+                "kwh": 20,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "East: 20 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R2",
+              "mode": "meter",
+              "question": "Give West's energy use, only kWh, no date.",
+              "answer": "West: 40 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "west"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "west",
+                "kwh": 40,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "West: 40 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            }
+          ],
+          "verdicts": [
+            {
+              "id": "D1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "D2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "score": 4,
+              "unanchored": false,
+              "improvement_comment": "The excerpt \"Reading date: 2034-05-10.\" violates the request \"only kWh, no date\" and the contract that only requested fields should be rendered. This extra field is already present in tool_results.rendered_answer and copied exactly into the final answer, establishing tool attribution. Correct the deterministic renderer to return \"South: 60 kWh.\" Retrieved facts match the anchor; this presentation defect does not establish broken_tool.",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "tool"
+            },
+            {
+              "id": "R1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "score": 4,
+              "unanchored": false,
+              "improvement_comment": "The excerpt \"Reading date: 2034-05-10.\" violates the request \"only kWh, no date\" and the contract that only requested fields should be rendered. This extra field is already present in tool_results.rendered_answer and copied exactly into the final answer, establishing tool attribution. Correct the deterministic renderer to return \"East: 20 kWh.\" Retrieved facts match the anchor; this presentation defect does not establish broken_tool.",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "tool"
+            },
+            {
+              "id": "R2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "score": 4,
+              "unanchored": false,
+              "improvement_comment": "The excerpt \"Reading date: 2034-05-10.\" violates the request \"only kWh, no date\" and the contract that only requested fields should be rendered. This extra field is already present in tool_results.rendered_answer and copied exactly into the final answer, establishing tool attribution. Correct the deterministic renderer to return \"West: 40 kWh.\" Retrieved facts match the anchor; this presentation defect does not establish broken_tool.",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "tool"
+            }
+          ],
+          "cross_analysis": []
+        }
+      ],
+      "stop": "MAX_ITERATIONS: 3 reached",
+      "goal_parameter_check": {
+        "frozen_directness_100_met": false,
+        "offline_directness_75_met": true,
+        "run_config_changed": false
+      },
+      "product_patch": "commit 0fdd631ebf8f168fa40dc5fec1a4c9b5f2e8d682\nAuthor:     Service Judge dogfood <dogfood@local>\nAuthorDate: Wed Sep 16 19:48:12 2026 +0200\nCommit:     Service Judge dogfood <dogfood@local>\nCommitDate: Wed Sep 16 19:48:12 2026 +0200\n\n    service-judge autopilot iter-01: preserve requested reading date\n\ndiff --git a/meter_service.py b/meter_service.py\nindex e6193f8..87f0385 100644\n--- a/meter_service.py\n+++ b/meter_service.py\n@@ -10,6 +10,8 @@ def answer(question):\n     building = next(name for name in READINGS if name in text)\n     kwh = READINGS[building]\n     rendered = f\"{building.title()}: {kwh} kWh.\"\n+    if \"date\" in text:\n+        rendered += f\" Reading date: {READING_DATE}.\"\n     return {\"answer\": rendered,\n             \"tools_called\": [{\"name\": \"meter_report\", \"arguments\": {\"building\": building}}],\n             \"tool_results\": {\"building\": building, \"kwh\": kwh,\ndiff --git a/test_meter_service.py b/test_meter_service.py\nnew file mode 100644\nindex 0000000..349c947\n--- /dev/null\n+++ b/test_meter_service.py\n@@ -0,0 +1,20 @@\n+import unittest\n+\n+from meter_service import answer\n+\n+\n+class ReadingDateTest(unittest.TestCase):\n+    def test_rendering_honors_requested_fields(self):\n+        for building, kwh in ((\"North\", 80), (\"South\", 60)):\n+            for request, expected in (\n+                (\"Include the reading date\", f\"{building}: {kwh} kWh. Reading date: 2034-05-10.\"),\n+                (\"Return only kWh\", f\"{building}: {kwh} kWh.\"),\n+            ):\n+                with self.subTest(building=building, request=request):\n+                    result = answer(f\"{building}: {request}.\")\n+                    self.assertEqual(result[\"answer\"], expected)\n+                    self.assertEqual(result[\"tool_results\"][\"rendered_answer\"], expected)\n+\n+\n+if __name__ == \"__main__\":\n+    unittest.main()\n",
+      "baseline_source": "import json\nimport sys\n\nREADINGS = {\"north\": 80, \"south\": 60, \"east\": 20, \"west\": 40}\nREADING_DATE = \"2034-05-10\"\n\n\ndef answer(question):\n    text = question.lower()\n    building = next(name for name in READINGS if name in text)\n    kwh = READINGS[building]\n    rendered = f\"{building.title()}: {kwh} kWh.\"\n    return {\"answer\": rendered,\n            \"tools_called\": [{\"name\": \"meter_report\", \"arguments\": {\"building\": building}}],\n            \"tool_results\": {\"building\": building, \"kwh\": kwh,\n                             \"reading_date\": READING_DATE,\n                             \"rendered_answer\": rendered},\n            \"model\": \"deterministic fixture\", \"model_generations\": 0}\n\n\nif __name__ == \"__main__\":\n    print(json.dumps(answer(sys.argv[1])))\n"
+    },
+    {
+      "config": {
+        "schema_version": 2,
+        "golden_sha256": "a143bc2d4c5220c72f15f7c799de014f313c28c04cb671fac366ab6bf5eb6173",
+        "judge": "codex/gpt-6-astra/high",
+        "service_context": "Local synthetic read-only energy reporting. meter_report retrieves and deterministically renders all final text. The response is copied exactly from tool_results.rendered_answer, with no model composition. All buildings are supported. Only requested fields should be rendered.",
+        "goals": {
+          "min_tool_choice_pct": 100,
+          "min_accuracy_pct": 100,
+          "min_hallucination_free_pct": 100,
+          "min_directness_pct": 100,
+          "min_pass_rate_pct": 100,
+          "min_holdout_score_pct": 100,
+          "max_dev_holdout_gap_pp": 0,
+          "min_anchor_coverage_pct": 100,
+          "profile": "synthetic-acceptance-100"
+        },
+        "max_iterations": 3,
+        "probe_strategy": "adaptive",
+        "focused_max_questions": 1,
+        "regression_sample": 0,
+        "answer_budget": 9,
+        "autonomy": {
+          "mode": "autopilot",
+          "edit_product_code": true,
+          "run_tests": true,
+          "restart_local": false,
+          "deploy_staging": false,
+          "commit": true
+        }
+      },
+      "questions": [
+        {
+          "id": "D1",
+          "mode": "meter",
+          "type": "date",
+          "split": "dev",
+          "question": "Give North's energy use and explicitly state the reading date."
+        },
+        {
+          "id": "D2",
+          "mode": "meter",
+          "type": "total",
+          "split": "dev",
+          "question": "Give South's energy use, only kWh, no date."
+        },
+        {
+          "id": "R1",
+          "mode": "meter",
+          "type": "total",
+          "split": "holdout",
+          "question": "Give East's energy use, only kWh, no date."
+        },
+        {
+          "id": "R2",
+          "mode": "meter",
+          "type": "total",
+          "split": "holdout",
+          "question": "Give West's energy use, only kWh, no date."
+        }
+      ],
+      "anchors": {
+        "D1": {
+          "anchor": "North: 80 kWh, reading date 2034-05-10."
+        },
+        "D2": {
+          "anchor": "South: 60 kWh, reading date 2034-05-10."
+        },
+        "R1": {
+          "anchor": "East: 20 kWh, reading date 2034-05-10."
+        },
+        "R2": {
+          "anchor": "West: 40 kWh, reading date 2034-05-10."
+        }
+      },
+      "history": [
+        {
+          "total": 19.0,
+          "max": 20,
+          "percent": 95,
+          "judge": {
+            "label": "codex/gpt-6-astra/high",
+            "cmd_sha256": null
+          },
+          "per_question": [
+            {
+              "id": "D1",
+              "split": "dev",
+              "score": 4.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "tool",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "D2",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R1",
+              "split": "holdout",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R2",
+              "split": "holdout",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            }
+          ],
+          "dev": {
+            "total": 9.0,
+            "max": 10,
+            "percent": 90
+          },
+          "holdout": {
+            "total": 10.0,
+            "max": 10,
+            "percent": 100
+          },
+          "gap_pp": -10,
+          "accuracy_pct": 100,
+          "tool_choice_pct": 100,
+          "hallucination_free_pct": 100,
+          "directness_pct": 75,
+          "pass_rate_pct": 100,
+          "anchor_coverage_pct": 100,
+          "holdout_score_pct": 100,
+          "unanchored_block": {
+            "count": 0,
+            "percent": 0,
+            "dimensions_pct": {
+              "tool_choice": null,
+              "accuracy": null,
+              "hallucination_free": null,
+              "directness": null
+            }
+          },
+          "hard_failures": [],
+          "cross_analysis": [],
+          "hard_gate": true,
+          "goals": {
+            "met": false,
+            "detail": [
+              {
+                "metric": "tool_choice_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "accuracy_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "hallucination_free_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "directness_pct",
+                "target": 100,
+                "actual": 75,
+                "met": false
+              },
+              {
+                "metric": "pass_rate_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "holdout_score_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "anchor_coverage_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "dev_holdout_gap_pp",
+                "target": 0,
+                "actual": -10,
+                "met": true
+              },
+              {
+                "metric": "anchored_dev_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "anchored_holdout_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "certifiable_accuracy",
+                "target": "at least one anchor",
+                "actual": 4,
+                "met": true
+              }
+            ]
+          },
+          "degradations": [],
+          "full": true,
+          "probed": 4
+        },
+        {
+          "total": 5.0,
+          "max": 5,
+          "percent": 100,
+          "judge": {
+            "label": "codex/gpt-6-astra/high",
+            "cmd_sha256": null
+          },
+          "per_question": [
+            {
+              "id": "D1",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            }
+          ],
+          "dev": {
+            "total": 5.0,
+            "max": 5,
+            "percent": 100
+          },
+          "holdout": {
+            "total": 0,
+            "max": 0,
+            "percent": null
+          },
+          "gap_pp": null,
+          "accuracy_pct": 100,
+          "tool_choice_pct": 100,
+          "hallucination_free_pct": 100,
+          "directness_pct": 100,
+          "pass_rate_pct": 100,
+          "anchor_coverage_pct": 100,
+          "holdout_score_pct": null,
+          "unanchored_block": {
+            "count": 0,
+            "percent": 0,
+            "dimensions_pct": {
+              "tool_choice": null,
+              "accuracy": null,
+              "hallucination_free": null,
+              "directness": null
+            }
+          },
+          "hard_failures": [],
+          "cross_analysis": [],
+          "hard_gate": true,
+          "degradations": [],
+          "full": false,
+          "probed": 1
+        },
+        {
+          "total": 20.0,
+          "max": 20,
+          "percent": 100,
+          "judge": {
+            "label": "codex/gpt-6-astra/high",
+            "cmd_sha256": null
+          },
+          "per_question": [
+            {
+              "id": "D1",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "D2",
+              "split": "dev",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R1",
+              "split": "holdout",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            },
+            {
+              "id": "R2",
+              "split": "holdout",
+              "score": 5.0,
+              "verdict": "pass",
+              "unanchored": false,
+              "failure_source": "none",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false
+            }
+          ],
+          "dev": {
+            "total": 10.0,
+            "max": 10,
+            "percent": 100
+          },
+          "holdout": {
+            "total": 10.0,
+            "max": 10,
+            "percent": 100
+          },
+          "gap_pp": 0,
+          "accuracy_pct": 100,
+          "tool_choice_pct": 100,
+          "hallucination_free_pct": 100,
+          "directness_pct": 100,
+          "pass_rate_pct": 100,
+          "anchor_coverage_pct": 100,
+          "holdout_score_pct": 100,
+          "unanchored_block": {
+            "count": 0,
+            "percent": 0,
+            "dimensions_pct": {
+              "tool_choice": null,
+              "accuracy": null,
+              "hallucination_free": null,
+              "directness": null
+            }
+          },
+          "hard_failures": [],
+          "cross_analysis": [],
+          "hard_gate": true,
+          "goals": {
+            "met": true,
+            "detail": [
+              {
+                "metric": "tool_choice_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "accuracy_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "hallucination_free_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "directness_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "pass_rate_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "holdout_score_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "anchor_coverage_pct",
+                "target": 100,
+                "actual": 100,
+                "met": true
+              },
+              {
+                "metric": "dev_holdout_gap_pp",
+                "target": 0,
+                "actual": 0,
+                "met": true
+              },
+              {
+                "metric": "anchored_dev_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "anchored_holdout_questions",
+                "target": 1,
+                "actual": 2,
+                "met": true
+              },
+              {
+                "metric": "certifiable_accuracy",
+                "target": "at least one anchor",
+                "actual": 4,
+                "met": true
+              }
+            ]
+          },
+          "degradations": [],
+          "full": true,
+          "probed": 4
+        }
+      ],
+      "iterations": [
+        {
+          "selection": {
+            "selected_ids": [
+              "D1",
+              "D2",
+              "R1",
+              "R2"
+            ],
+            "full": true,
+            "reason": "no_full_baseline",
+            "strategy": "adaptive"
+          },
+          "pack": [
+            {
+              "id": "D1",
+              "mode": "meter",
+              "question": "Give North's energy use and explicitly state the reading date.",
+              "answer": "North: 80 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "north"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "north",
+                "kwh": 80,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "North: 80 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "D2",
+              "mode": "meter",
+              "question": "Give South's energy use, only kWh, no date.",
+              "answer": "South: 60 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "south"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "south",
+                "kwh": 60,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "South: 60 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R1",
+              "mode": "meter",
+              "question": "Give East's energy use, only kWh, no date.",
+              "answer": "East: 20 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "east"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "east",
+                "kwh": 20,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "East: 20 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R2",
+              "mode": "meter",
+              "question": "Give West's energy use, only kWh, no date.",
+              "answer": "West: 40 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "west"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "west",
+                "kwh": 40,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "West: 40 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            }
+          ],
+          "verdicts": [
+            {
+              "id": "D1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 0
+              },
+              "score": 4,
+              "unanchored": false,
+              "improvement_comment": "The request says \"explicitly state the reading date\", but the answer and tool_results.rendered_answer contain only \"North: 80 kWh.\" The anchor and tool_results.reading_date establish the date as \"2034-05-10\". Include that date in the tool-rendered answer. The omission originates in deterministic tool rendering; the retrieved facts are correct, so broken_tool is false.",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "tool"
+            },
+            {
+              "id": "D2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "R1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "R2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            }
+          ],
+          "cross_analysis": [],
+          "coder_brief": {
+            "repo": "<isolated synthetic repo>",
+            "allowed_actions": {
+              "edit_product_code": true,
+              "run_tests": true,
+              "restart_local": false,
+              "deploy_staging": false,
+              "commit": true
+            },
+            "dev": [
+              {
+                "id": "D1",
+                "score": 4.0,
+                "improvement_comment": "The request says \"explicitly state the reading date\", but the answer and tool_results.rendered_answer contain only \"North: 80 kWh.\" The anchor and tool_results.reading_date establish the date as \"2034-05-10\". Include that date in the tool-rendered answer. The omission originates in deterministic tool rendering; the retrieved facts are correct, so broken_tool is false.",
+                "failure_source": "tool",
+                "critical_flags": []
+              }
+            ],
+            "regressed_ids": [],
+            "cross_analysis": [],
+            "holdout": {
+              "percent": 100,
+              "gap_pp": -10
+            },
+            "gates": {
+              "hard_gate": true,
+              "goals_met": false
+            }
+          },
+          "fix": {
+            "sha": "b3a4380d09af0cbdf8a8a3693d1bbeddfe4af2af",
+            "files": [
+              "meter_service.py",
+              "test_meter_service.py"
+            ],
+            "tests": [
+              "python3 -B -m unittest discover -v",
+              "git diff --check"
+            ],
+            "review": "Product-only commit inspected; positive and negative requested-field tests rerun successfully. Full evaluation still required."
+          }
+        },
+        {
+          "selection": {
+            "selected_ids": [
+              "D1"
+            ],
+            "full": false,
+            "reason": "focused",
+            "strategy": "adaptive"
+          },
+          "pack": [
+            {
+              "id": "D1",
+              "mode": "meter",
+              "question": "Give North's energy use and explicitly state the reading date.",
+              "answer": "North: 80 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "north"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "north",
+                "kwh": 80,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "North: 80 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            }
+          ],
+          "verdicts": [
+            {
+              "id": "D1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            }
+          ],
+          "cross_analysis": []
+        },
+        {
+          "selection": {
+            "selected_ids": [
+              "D1",
+              "D2",
+              "R1",
+              "R2"
+            ],
+            "full": true,
+            "reason": "final_iteration",
+            "strategy": "adaptive"
+          },
+          "pack": [
+            {
+              "id": "D1",
+              "mode": "meter",
+              "question": "Give North's energy use and explicitly state the reading date.",
+              "answer": "North: 80 kWh. Reading date: 2034-05-10.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "north"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "north",
+                "kwh": 80,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "North: 80 kWh. Reading date: 2034-05-10."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "D2",
+              "mode": "meter",
+              "question": "Give South's energy use, only kWh, no date.",
+              "answer": "South: 60 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "south"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "south",
+                "kwh": 60,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "South: 60 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R1",
+              "mode": "meter",
+              "question": "Give East's energy use, only kWh, no date.",
+              "answer": "East: 20 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "east"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "east",
+                "kwh": 20,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "East: 20 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            },
+            {
+              "id": "R2",
+              "mode": "meter",
+              "question": "Give West's energy use, only kWh, no date.",
+              "answer": "West: 40 kWh.",
+              "tools_called": [
+                {
+                  "name": "meter_report",
+                  "arguments": {
+                    "building": "west"
+                  }
+                }
+              ],
+              "tool_results": {
+                "building": "west",
+                "kwh": 40,
+                "reading_date": "2034-05-10",
+                "rendered_answer": "West: 40 kWh."
+              },
+              "model": "deterministic fixture",
+              "model_generations": 0,
+              "error": null
+            }
+          ],
+          "verdicts": [
+            {
+              "id": "D1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "D2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "R1",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            },
+            {
+              "id": "R2",
+              "dimensions": {
+                "tool_choice": 1,
+                "accuracy": 2,
+                "hallucination_free": 1,
+                "directness": 1
+              },
+              "score": 5,
+              "unanchored": false,
+              "improvement_comment": "",
+              "broken_tool": false,
+              "hallucinated_narrative": false,
+              "false_guardrail": false,
+              "unsafe_side_effect": false,
+              "failure_source": "none"
+            }
+          ],
+          "cross_analysis": []
+        }
+      ],
+      "stop": "PASSED: hard gate and goals met",
+      "goal_parameter_check": {
+        "frozen_directness_100_met": false,
+        "offline_directness_75_met": true,
+        "run_config_changed": false
+      },
+      "product_patch": "commit b3a4380d09af0cbdf8a8a3693d1bbeddfe4af2af\nAuthor:     Service Judge dogfood <dogfood@local>\nAuthorDate: Wed Sep 16 22:33:40 2026 +0200\nCommit:     Service Judge dogfood <dogfood@local>\nCommitDate: Wed Sep 16 22:33:40 2026 +0200\n\n    service-judge autopilot iter-01: honor requested reading fields\n\ndiff --git a/meter_service.py b/meter_service.py\nindex e6193f8..c2007b4 100644\n--- a/meter_service.py\n+++ b/meter_service.py\n@@ -1,4 +1,5 @@\n import json\n+import re\n import sys\n \n READINGS = {\"north\": 80, \"south\": 60, \"east\": 20, \"west\": 40}\n@@ -10,6 +11,14 @@ def answer(question):\n     building = next(name for name in READINGS if name in text)\n     kwh = READINGS[building]\n     rendered = f\"{building.title()}: {kwh} kWh.\"\n+    # ponytail: English field requests only; use structured fields if the contract expands.\n+    omit_date = re.search(\n+        r\"\\b(?:only\\s+(?:the\\s+)?kwh|kwh\\s+only)\\b|\"\n+        r\"\\b(?:no|without|omit|exclude|skip|(?:do not|don't)\\s+(?:include|show|state|report))\"\n+        r\"\\s+(?:the\\s+)?(?:reading\\s+)?date\\b\", text\n+    )\n+    if re.search(r\"\\bdate\\b\", text) and not omit_date:\n+        rendered += f\" Reading date: {READING_DATE}.\"\n     return {\"answer\": rendered,\n             \"tools_called\": [{\"name\": \"meter_report\", \"arguments\": {\"building\": building}}],\n             \"tool_results\": {\"building\": building, \"kwh\": kwh,\ndiff --git a/test_meter_service.py b/test_meter_service.py\nnew file mode 100644\nindex 0000000..9f97446\n--- /dev/null\n+++ b/test_meter_service.py\n@@ -0,0 +1,26 @@\n+import unittest\n+\n+from meter_service import answer\n+\n+\n+class RequestedFieldsTest(unittest.TestCase):\n+    def test_requested_reading_fields(self):\n+        for question, include_date in [\n+            (\"Report North's kWh and explicitly state the reading date.\", True),\n+            (\"Include the READING DATE with South's usage.\", True),\n+            (\"Report East's kWh.\", False),\n+            (\"Report only kWh for West.\", False),\n+            (\"Report only kWh for North; the reading date is irrelevant.\", False),\n+            (\"Report North's kWh only; do not include the reading date.\", False),\n+            (\"Report South's usage without the reading date.\", False),\n+            (\"Report East's kWh; don't include the reading date.\", False),\n+        ]:\n+            with self.subTest(question=question):\n+                result = answer(question)\n+                self.assertEqual(result[\"answer\"], result[\"tool_results\"][\"rendered_answer\"])\n+                self.assertEqual(\"2034-05-10\" in result[\"answer\"], include_date)\n+                self.assertIn(\"kWh\", result[\"answer\"])\n+\n+\n+if __name__ == \"__main__\":\n+    unittest.main()\n",
+      "baseline_source": "import json\nimport sys\n\nREADINGS = {\"north\": 80, \"south\": 60, \"east\": 20, \"west\": 40}\nREADING_DATE = \"2034-05-10\"\n\n\ndef answer(question):\n    text = question.lower()\n    building = next(name for name in READINGS if name in text)\n    kwh = READINGS[building]\n    rendered = f\"{building.title()}: {kwh} kWh.\"\n    return {\"answer\": rendered,\n            \"tools_called\": [{\"name\": \"meter_report\", \"arguments\": {\"building\": building}}],\n            \"tool_results\": {\"building\": building, \"kwh\": kwh,\n                             \"reading_date\": READING_DATE,\n                             \"rendered_answer\": rendered},\n            \"model\": \"deterministic fixture\", \"model_generations\": 0}\n\n\nif __name__ == \"__main__\":\n    print(json.dumps(answer(sys.argv[1])))\n"
+    }
+  ]
+}

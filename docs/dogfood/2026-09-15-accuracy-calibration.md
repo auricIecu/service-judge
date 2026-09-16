@@ -67,9 +67,11 @@ Continúa el permiso previo de evaluación externa con Codex; el usuario pidió
 conservan su texto histórico de autorización del 10 de septiembre; este informe
 y el campo de continuación del archivo de resultados registran la continuación
 del 15, sin reescribir artefactos históricos. Comando mostrado: `codex …`.
-El runner no guardó una huella del comando ejecutado ni consumo de tokens;
-esa parte de la auditoría no está capturada. Sí conserva las huellas de las
-entradas y las salidas completas de cada intento.
+El manifiesto del runner no guarda una huella del comando ejecutado ni consumo
+estructurado de tokens. Los logs privados del CLI pueden incluir su contador
+`tokens used`; no equivale a un registro completo de coste o consumo del servicio.
+El archivo público sí conserva las huellas de las entradas y las salidas
+completas de cada intento.
 
 La revisión independiente no encontró penalizaciones sin evidencia ni
 bloqueantes. Detectó una imprecisión menor que se conserva: en H02, candidata,

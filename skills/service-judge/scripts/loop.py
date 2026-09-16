@@ -275,13 +275,14 @@ def compute_grade(verdicts: list[dict], questions: list[dict], judge: dict,
                 or not isinstance(v.get("improvement_comment"), str)
                 or v.get("failure_source") not in FAILURE_SOURCES
                 or (v.get("failure_source") == "tool"
-                    and v.get("broken_tool") is not True)
+                    and not has_tool_results[qid])
                 or (v.get("broken_tool") is True
                     and v.get("failure_source")
                     != ("tool" if has_tool_results[qid] else "unknown"))
                 or (v.get("failure_source") == "none"
                     and any(v.get(flag) is True for flag in CRITICAL_FLAGS))
-                or (v.get("failure_source") == "none" and score < 400)
+                or (v.get("failure_source") == "none"
+                    and score < (400 if unanchored else 500))
                 or (v.get("failure_source") != "none"
                     and score >= (400 if unanchored else 500)
                     and not any(v.get(flag) is True for flag in CRITICAL_FLAGS))
@@ -526,6 +527,11 @@ def is_passing(row: dict) -> bool:
             and not any(row.get(flag) is True for flag in CRITICAL_FLAGS))
 
 
+def needs_improvement(row: dict) -> bool:
+    """A passing score can still lose a dimension needed by the run's goals."""
+    return not is_passing(row) or row["score"] < (4 if row.get("unanchored") else 5)
+
+
 def latest_row_map(history: list[dict]) -> dict[str, dict]:
     rows = {}
     for grade in history:
@@ -562,8 +568,7 @@ def build_fix_brief(verdicts: list[dict], questions: list[dict], grade: dict,
                             if valid[v["id"]][flag]]}
         for v in verdicts
         if v.get("id") in valid and v["id"] in dev_ids
-        and (valid[v["id"]]["score"] < 4
-             or any(valid[v["id"]][flag] for flag in CRITICAL_FLAGS))
+        and needs_improvement(valid[v["id"]])
     ]
     return {
         "repo": authorization["repo"],
@@ -617,7 +622,7 @@ def select_questions(questions: list[dict], history: list[dict], cfg: dict,
     q_by_id = {q["id"]: q for q in questions}
     dev = [q for q in questions if q.get("split", "dev") == "dev"]
     failures = [q for q in dev
-                if q["id"] in latest_rows and not is_passing(latest_rows[q["id"]])]
+                if q["id"] in latest_rows and needs_improvement(latest_rows[q["id"]])]
     if not failures:
         return questions, True, "no_dev_failures"
 
@@ -1107,9 +1112,9 @@ def main() -> int:
     dev_fails = [r["id"] for r in grade["per_question"]
                  if r["split"] == "dev" and r["score"] < 4]
     dev_issues = [r["id"] for r in grade["per_question"]
-                  if r["split"] == "dev" and not is_passing(r)]
+                  if r["split"] == "dev" and needs_improvement(r)]
     stop, reason = should_stop(history, max_iter)
-    if not stop and not grade["full"] and grade["hard_gate"] and not dev_fails:
+    if not stop and not grade["full"] and grade["hard_gate"] and not dev_issues:
         reason = ("FOCUSED PASSED: the targeted questions pass, but a partial "
                   "evaluation cannot certify. Run again for the full evaluation.")
     regressed = regressed_ids(grade["per_question"], previous)
@@ -1123,7 +1128,7 @@ def main() -> int:
             reason = ("NOTHING_ACTIONABLE: all remaining failures are holdout-only "
                       "or mixed dev/holdout groups, which the fixer cannot see by "
                       "design; the next step belongs to the human.")
-        else:
+        elif brief_is_actionable(brief):
             fix_brief_path = iter_dir / "fix-brief.json"
             fix_brief_path.write_text(json.dumps(brief, indent=2), encoding="utf-8")
     if not stop and not reason:
