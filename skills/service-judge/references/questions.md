@@ -74,7 +74,8 @@ Distribute the chosen N across:
 
 For every question that has a verifiable answer, extract the ground truth via
 a path that does NOT go through the evaluated LLM: direct SQL (read-only),
-REST endpoints that serve raw data, observability traces. Store it as
+REST endpoints that serve raw data, or independent source-system observability.
+Traces from the evaluated chatbot are execution evidence, never anchors. Store it as
 `raw/anchors.snapshot.json` — in a loop run that is
 `.service-judge/run-<id>/raw/anchors.snapshot.json`, the only path the ignore
 rules protect — keyed by canonical question id:
@@ -160,6 +161,81 @@ user — hiding it is the loop's job, not this one.
   pause that mode and flag it to the user before continuing — don't keep
   hammering an already-degraded service.
 - Throttle: stay under ~2 req/s unless the user says otherwise.
+
+## Optional Langfuse evidence
+
+Enable only for the project/environment being evaluated. In loop `config.json`:
+
+```json
+{"langfuse": {"base_url": "https://cloud.langfuse.com", "wait_seconds": 10}}
+```
+
+Credentials come from evaluator-only `LANGFUSE_PUBLIC_KEY` and
+`LANGFUSE_SECRET_KEY` environment variables, never config or command arguments.
+`base_url` defaults to `LANGFUSE_BASE_URL`, then the EU Cloud URL above; set it
+for US Cloud or self-hosting. HTTPS is required except on loopback. This uses
+the [Observations API v2](https://langfuse.com/docs/api-and-data-platform/features/observations-api)
+(Cloud or self-hosted v4+), with Basic Auth, cursor pagination and a bounded
+time window. Unsupported servers degrade to missing evidence; no SDK dependency.
+Older ingestion SDKs can make traces visible after the configured deadline.
+
+The probe adapter preserves the IDs returned by that exact service request:
+
+```json
+{"answer":"42","tools_called":null,"trace_id":"returned-trace-id","session_id":"returned-session-id"}
+```
+
+`trace_id` takes precedence. Never query the latest trace or match by question
+text. With only `session_id`, enable `"session_per_request": true` **only if the
+adapter creates a fresh, exclusive session for every execution**, including
+retries and iterations. A session shared by concurrent requests or reused
+across iterations cannot identify this answer; supply a trace ID instead.
+The loop's stable `{qid}` (`eval-Q01`) is not a unique execution ID; the adapter
+must create and return the exclusive service session. Without safe correlation,
+the answer is still judged and `trace_evidence.reason` records the limitation.
+
+The collector fills absent/null `tools_called`, `tool_results`, `model`,
+`model_generations` (count), `input_tokens`, `cached_input_tokens`, `output_tokens`,
+`latency_ms`, `trace_url`, and `cost_usd` (observed generation costs in USD).
+Existing service telemetry wins; conflicting details remain visible in the
+snapshot. Typed `TOOL` observations carry arguments/results. For integrations
+that emit tools as generic `SPAN`s, list exact names in `langfuse.tool_names`;
+other spans are not guessed to be tools. Absent tool spans do not prove zero
+tool calls. Usage is summed across observed generations only when each exposes
+the relevant metric; absent usage remains unknown. Root start/end times give
+execution latency, excluding the wait for telemetry.
+
+`trace_evidence` retains observations with model inputs/outputs, tools,
+parent IDs, timestamps, levels/status messages, usage/costs, and exported retry
+metadata. Repeated calls retain their distinct observation IDs; identical
+calls alone do not prove a retry. This untrusted evidence explains execution;
+accuracy still requires the independent anchors.
+
+Each answer gets a sanitized `raw/langfuse-<question-hash>.json` snapshot
+(directory mode 700, file mode 600). The enriched pack embeds the same evidence
+for judging, so re-judging/reopening an iteration uses stored data without
+querying Langfuse or the chatbot again. No collection occurs for an existing
+pack, even if Langfuse is enabled later. For a one-off evaluation, reuse
+`scripts/loop.py`'s `probe(questions, probe_cmd, langfuse=..., raw_dir=...)`
+with that run's private raw directory; no improvement loop is required.
+
+`wait_seconds` is a total per-answer budget, integer 1–60 (default 10).
+`available` means a non-empty snapshot with ended roots/spans was stable on
+two reads, not a guarantee that all asynchronous SDK batches have arrived.
+`partial` preserves the observations fetched before timeout/error;
+`missing` means none were usable. Auth/quota errors stop collection promptly;
+delayed ingestion and transient failures retry only within the budget.
+Pagination is capped at 100 cursors / 8 MiB per sweep. Never turn missing
+telemetry into a zero cost or empty tool history. Report partial metrics as
+observed lower bounds, not complete totals; report missing evidence as reduced
+causal confidence, not a chatbot failure.
+
+Before saving or judging, redact sensitive fields, known credential values and
+authorization strings, including serialized JSON. Also mask secrets at the
+service's instrumentation source: arbitrary secrets in free text cannot be
+recognized reliably. Keep raw data private and gitignored; do not publish traces.
+The fixer gets only reviewed dev conclusions, never these snapshots or Langfuse
+access. Follow the loop skill's enforced-isolation rule before autopilot.
 
 ## Canary gate (Phase 3c → 4 → 3c)
 

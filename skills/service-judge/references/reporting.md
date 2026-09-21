@@ -35,6 +35,9 @@ Fill `assets/report-template.md`. Rules:
   `unknown` when tool results or anchor provenance do not support a stronger
   claim; never turn uncertainty into a model, tool, or anchor diagnosis.
 - **Evidence limits:** surface `Unverified:` comments even on 5/5 answers.
+  Include missing/partial Langfuse coverage and its effect on causal confidence.
+  Trace links stay in private evaluator evidence; never include holdout links
+  or payloads in the fixer's report.
   Separate demonstrated defects from claims awaiting evidence; false flags
   and a high score do not establish that unverified claims are true. Preserve
   the offending excerpt and its reference when condensing deduction comments.
@@ -51,6 +54,9 @@ Fill `assets/report-template.md`. Rules:
   there by burning 3× the context. If the pack has no usage fields, write
   "not captured — service does not expose usage" rather than omitting the
   section.
+  When `cost_usd` is captured, use it for observed service cost; missing values
+  are unknown, not zero. Label partial trace totals as lower bounds. Do not
+  claim complete run cost or cost per correct answer without complete usage.
 - **Aborted runs:** if the canary gate aborted the run, that IS the report.
   Lead with the abort reason and the evidence, keep the scorecard to the
   questions actually asked, note how many answers were NOT bought, and skip

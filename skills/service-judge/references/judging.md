@@ -98,6 +98,16 @@ from the pack row when present: it is the evidence that separates `tool` from
 `model`, and its presence decides whether `broken_tool` is attributed `tool`
 or `unknown`.
 
+When `trace_evidence` is present, use the saved observations to locate a failure
+in tool selection, arguments, returned data, or the model's response. Describe
+that stage in `improvement_comment`, retaining the rubric's existing
+`failure_source` values. Do not query live traces while re-judging. A partial
+or missing trace limits attribution; it does not lower answer accuracy by
+itself. The trace is not an independent anchor. In loop runs, write dev comments
+using only dev evidence and conclusions: exclude trace IDs/links, raw payloads,
+secrets, and holdout excerpts. Mixed findings stay in cross-analysis and never
+become individual dev fix instructions.
+
 ## What to hunt beyond the rubric (the judge's real value)
 
 After scoring individual answers, do a CROSS-ANSWER pass:

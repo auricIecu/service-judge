@@ -135,6 +135,14 @@ a typical adaptive run costs `30 + 10 + 10 + 30 = 80` answers instead of
 
 ## What it costs
 
+Langfuse can optionally supply execution evidence: enable a `langfuse` block
+in the loop config and preserve the service-returned trace/session ID in the
+probe adapter. Calls, arguments/results, timing, usage and cost are saved under
+private `raw/` and reused when re-judging. Missing traces never block evaluation
+and never replace independent ground truth. See the
+[configuration and privacy contract](skills/service-judge/references/questions.md#optional-langfuse-evidence),
+including the required isolation between evaluator and autopilot fixer.
+
 Judging is free by default on the active Claude Code or Codex subscription.
 An optional external judge consumes that other harness's subscription. The
 plugin never reads an LLM API key or calls a model API directly.
