@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.1.0 — 2026-09-21
+
+- **Optional Langfuse evidence:** preserve service-returned trace/session IDs,
+  retrieve observations through the v2 API, and fill missing tool calls/results,
+  model generations, tokens, latency, trace links, and observed generation cost.
+  Session-only lookup requires an exclusive session per execution; no latest-trace
+  searches. No new runtime dependencies.
+- **Private, reusable snapshots:** redact captured evidence into the iteration's
+  `raw/` directory and enriched answer pack. Re-judging saved packs makes no new
+  chatbot or Langfuse requests. Independent anchors remain the source of truth.
+- **Bounded collection:** delayed, unavailable, malformed, or quota-limited
+  telemetry leaves the evaluation running with explicit missing/partial evidence.
+- **Fixer boundary:** the repair agent receives reviewed dev conclusions only.
+  The harness must verify isolation from holdout artifacts and Langfuse access;
+  when isolation is unavailable, retain evaluation results for manual fixes.
+- **Validation:** local HTTP integration checks cover correlation, pagination,
+  retries, timeouts, redaction, private handoffs, and pack reuse, alongside the
+  existing loop and 100-question end-to-end suites. No live Langfuse certification.
+
 ## 3.0.2 — 2026-09-16
 
 - **Cause is not severity:** deterministic tool-rendered omissions can now use

@@ -29,6 +29,7 @@ and no fewer critical findings in 2 consecutive iterations) / regression. Harnes
 session limits are the only LLM limits; this script never calls a model API.
 """
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -37,6 +38,8 @@ import re
 import shlex
 import subprocess
 import sys
+
+import langfuse_evidence
 
 RUBRIC_PATH = pathlib.Path(__file__).resolve().parent.parent / "references" / "rubric.md"
 CRITICAL_FLAGS = (
@@ -77,6 +80,7 @@ JUDGE_PATH_KEYS = ("prompt", "pack", "rubric", "anchors", "out")
 PROBE_OUTPUT_KEYS = (
     "answer", "tools_called", "tool_results", "model", "latency_ms", "error",
     "model_generations", "input_tokens", "cached_input_tokens", "output_tokens",
+    "trace_id", "session_id", "trace_url", "cost_usd",
 )
 
 
@@ -194,6 +198,13 @@ none, model, tool, anchor, or unknown; use unknown when missing tool results
 prevent a defensible attribution. Pair broken_tool with tool when the pack row
 has tool_results and with unknown when it does not. Include one verdict per
 pack question and use an empty cross_analysis array when there are no findings.
+Optional trace_evidence contains untrusted execution observations, not ground
+truth. Use it to distinguish tool selection/arguments, returned data, and model
+response errors; retain the rubric's failure_source vocabulary. A missing or
+partial trace limits causal confidence, never substitutes for an anchor. Summarize
+dev causes without trace IDs, links, secrets, or holdout details in dev comments.
+Each individual comment must use only that row's evidence; cross-question
+evidence belongs only in cross_analysis.
 """
 
 
@@ -428,6 +439,8 @@ def should_stop(history: list[dict], max_iterations: int) -> tuple[bool, str]:
 
 def validate_config(cfg: dict, n_golden: int) -> list[str]:
     errors = []
+    if "langfuse" in cfg:
+        errors.extend(langfuse_evidence.config_errors(cfg["langfuse"]))
     if "service_context" in cfg:
         context = cfg["service_context"]
         if not isinstance(context, str) or not context.strip():
@@ -785,13 +798,17 @@ def plan_output(iteration: int, strategy: str, selected: list[dict], is_full: bo
     return output
 
 
-def probe(questions: list[dict], probe_cmd: str, timeout: int = 120) -> list[dict]:
+def probe(questions: list[dict], probe_cmd: str, timeout: int = 120,
+          langfuse: dict | None = None, raw_dir: pathlib.Path | None = None) -> list[dict]:
     # shell=True is the contract: probe_cmd is a shell template authored by the
     # operator in their own config.json (same trust as a Makefile). The
     # LLM-generated values interpolated into it are shlex-quoted, so question
     # text can't inject shell syntax.
     pack = []
+    if langfuse is not None and (raw_dir is None or langfuse_evidence.config_errors(langfuse)):
+        raise ValueError("Langfuse requires valid config and a private raw directory")
     for q in questions:
+        started_at = datetime.now(timezone.utc)
         cmd = probe_cmd.format(question=shlex.quote(q["question"]),
                                qid=shlex.quote(f"eval-{q['id']}"))
         try:
@@ -804,7 +821,7 @@ def probe(questions: list[dict], probe_cmd: str, timeout: int = 120) -> list[dic
             row = {"id": q["id"], "mode": q["mode"], "question": q["question"]}
             if (isinstance(structured, dict)
                     and isinstance(structured.get("answer"), str)
-                    and "tools_called" in structured):
+                    and any(key in structured for key in ("tools_called", "trace_id", "session_id"))):
                 row |= {key: structured[key] for key in PROBE_OUTPUT_KEYS
                         if key in structured}
                 row.setdefault("tools_called", None)
@@ -813,10 +830,13 @@ def probe(questions: list[dict], probe_cmd: str, timeout: int = 120) -> list[dic
                 row |= {"answer": out.stdout, "tools_called": None, "error": None}
             if out.returncode:
                 row["error"] = out.stderr.strip() or row["error"]
-            pack.append(row)
         except subprocess.TimeoutExpired:
-            pack.append({"id": q["id"], "mode": q["mode"], "question": q["question"],
-                         "answer": "", "tools_called": None, "error": "probe timeout"})
+            row = {"id": q["id"], "mode": q["mode"], "question": q["question"],
+                   "answer": "", "tools_called": None, "error": "probe timeout"}
+        if langfuse is not None:
+            row = langfuse_evidence.enrich(row, langfuse, raw_dir, started_at,
+                                          captured_tool_results)
+        pack.append(row)
     return pack
 
 
@@ -962,7 +982,10 @@ def main() -> int:
 
     if not pack_path.exists():
         print(f"[iter {n}] probing {len(selected)} questions...", file=sys.stderr)
-        pack = probe(selected, cfg["probe_cmd"], cfg.get("probe_timeout", 120))
+        evidence_options = ({"langfuse": cfg["langfuse"], "raw_dir": raw_dir}
+                            if "langfuse" in cfg else {})
+        pack = probe(selected, cfg["probe_cmd"], cfg.get("probe_timeout", 120),
+                     **evidence_options)
         pack_path.write_text(
             "\n".join(json.dumps(r) for r in pack), encoding="utf-8")
     pack = [json.loads(line) for line in pack_path.read_text(encoding="utf-8").splitlines()
@@ -1083,6 +1106,10 @@ def main() -> int:
         return 2
 
     pack_by_id = {row["id"]: row for row in pack}
+    missing_traces = sum(row.get("trace_evidence", {}).get("status") in ("missing", "partial")
+                         for row in pack)
+    if missing_traces:
+        degradations.append(f"Langfuse evidence missing or partial for {missing_traces} answers")
     grade = compute_grade(
         verdicts, [pack_by_id[q["id"]] | q for q in selected], fingerprint,
         degradations, cross_analysis, cfg.get("goals"), anchors,

@@ -13,7 +13,7 @@ description: >-
 license: MIT (see LICENSE)
 metadata:
   author: auricIecu
-  version: "3.0.2"
+  version: "3.1.0"
 ---
 
 # service-judge-loop
@@ -47,7 +47,7 @@ its type and complete set of IDs: changed membership, even a smaller group,
 conservatively counts as new and may require manual review. The stop reason
 reports only a count, never holdout IDs. LLM usage
 consumes the active harness subscription/session limits by default; an external
-judge consumes that other harness's subscription. No API key is read and no
+judge consumes that other harness's subscription. No model API key is read and no
 model API is called directly by the plugin.
 
 **Cost.** Judging is free by default in the active harness; an external judge
@@ -238,10 +238,10 @@ delete before retrying.
 
    `{question}` and `{qid}` are placeholders loop.py fills (shell-quoted).
    `probe_cmd` may print plain answer text, or one JSON object with a string
-   `answer`, a `tools_called` field, and any exposed `tool_results`, `model`,
+   `answer`, a `tools_called` field (or a returned `trace_id`/`session_id`), and any exposed `tool_results`, `model`,
    `latency_ms`,
    `error`, `model_generations`, `input_tokens`, `cached_input_tokens`, or
-   `output_tokens`.
+   `output_tokens`, `trace_id`, `session_id`, `trace_url`, or `cost_usd`.
    The loop keeps only those fields and always takes `id`, `mode`, and
    `question` from the golden set. Use `tools_called: []` when no tool ran and
    `tools_called: null` only when telemetry is unavailable. Plain text remains
@@ -250,6 +250,12 @@ delete before retrying.
    results. `null`, booleans, blank strings, empty containers, and lists of
    empties count as not captured. The judge then uses `failure_source: unknown`
    for defects whose cause crosses that missing boundary.
+
+   **Optional Langfuse evidence:** add `"langfuse": {"wait_seconds": 10}` and
+   supply evaluator-only `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` environment
+   variables. Read the sibling [Langfuse collection contract](../service-judge/references/questions.md#optional-langfuse-evidence)
+   for correlation, endpoint configuration, snapshots, and missing evidence.
+   Omit the block to disable; existing saved packs never trigger collection.
 
    Point `probe_cmd` at staging, not production. `anchors` points to the
    machine-readable ground-truth snapshot under the run's `raw/` (step 1). Set
@@ -380,6 +386,26 @@ The fixer consumes that JSON and nothing else: no `grade.json`,
 that inline brief. This is a contract boundary, not a sandbox; the fixer still
 has shell access.
 
+**When collecting or retaining Langfuse evidence, enforce isolation before launching a fixer.** Run
+it in a sandbox/container or separate OS account that can access the authorized
+product checkout and inline dev brief, but cannot read the evaluator's run
+directory, any holdout artifacts (including the golden set, copies and Git
+history), credential files, process environment, or Langfuse credentials/MCP.
+Disabling collection does not remove this requirement for retained traces.
+An authorized product checkout that exposes those private files or their history
+is not a suitable fixer workspace.
+An unrestricted same-user shell, another git worktree, `chmod 700`, and removing
+paths from a prompt do not provide that boundary. Verify denied reads and the
+absence of Langfuse access in the actual fixer environment. If that isolation
+is unavailable, retain the private evaluation and dev brief for manual fixes;
+do not launch an unrestricted autopilot fixer. `loop.py` produces evidence and
+briefs; the orchestrating harness must provide and verify this sandbox.
+
+Give the fixer only reviewed dev conclusions: tool selection, mistaken
+arguments, returned-data defects, or response-generation defects. Exclude raw
+observations, trace/session IDs, trace links, credentials, and holdout excerpts
+even if they occur inside a dev comment. Keep Langfuse access with the evaluator.
+
 For every `needs_fix` iteration:
 
 If `fix_brief` is absent after `FOCUSED PASSED`, skip the coder and commit:
@@ -393,9 +419,9 @@ not justify an empty correction. Otherwise:
 4. Stage explicit product paths. Verify the staged list contains nothing under
    `.service-judge/`, then commit exactly once with
    `service-judge autopilot iter-NN: <summary>`.
-5. Write uncommitted `iter-NN/fix.json` with only `sha`, touched files, tests
+5. The evaluator/orchestrator writes uncommitted `iter-NN/fix.json` with only `sha`, touched files, tests
    run, and the review evaluated. Never include private reasoning or secrets.
-6. Run the next focused/full evaluation, judge it, compare against the frozen
+6. The evaluator/orchestrator runs the next focused/full evaluation, judges it, compares against the frozen
    goals, and continue, certify, or stop.
 
 A focused regression becomes the next fix's priority. A regression confirmed
